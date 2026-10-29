@@ -34,6 +34,7 @@ import { ProjectDetailFields } from "./project-detail-fields";
 import { parseProjectDetails } from "@/lib/project-details";
 import { AddressInput } from "./address-input";
 import { parseProjectAddress } from "@/lib/address";
+import { ProgressReview, ReviewStatus } from "./progress-review";
 import { SalesPipeline } from "./sales-pipeline";
 import { type PipelineStage, pipelineOpportunity } from "@/lib/pipeline";
 import { EstimateProjectInfo } from "./estimate-project-info";
@@ -58,16 +59,24 @@ import {
   type Data,
   type Project,
   type Estimate,
+  type Report,
 } from "@/lib/model";
 
 type Tab =
-  "contacts" | "overview" | "projects" | "estimates" | "field" | "settings";
+  | "contacts"
+  | "overview"
+  | "projects"
+  | "estimates"
+  | "field"
+  | "review"
+  | "settings";
 const tabs = [
   { id: "contacts" as const, label: "Builders y contactos", icon: Building2 },
   { id: "overview" as const, label: "Vista general", icon: LayoutDashboard },
   { id: "projects" as const, label: "Obras", icon: Building2 },
   { id: "estimates" as const, label: "Estimados", icon: FileText },
   { id: "field" as const, label: "Avances de obra", icon: HardHat },
+  { id: "review" as const, label: "Revisar avances", icon: ClipboardList },
   { id: "settings" as const, label: "Configuración", icon: Settings },
 ];
 const empty: Data = {
@@ -483,6 +492,51 @@ export function Workspace({
       );
     });
   }
+  async function reviewReport(
+    report: Report,
+    status: "approved" | "observed",
+    note: string,
+  ) {
+    if (!canManage)
+      throw new Error("Solo oficina y el dueño pueden revisar avances.");
+    if (busy) return;
+    setBusy(true);
+    setNotice("");
+    try {
+      let updated: Report = {
+        ...report,
+        review_status: status,
+        review_note: note,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: demo ? null : userId,
+      };
+      if (!demo) {
+        const result = await browserDb()
+          .from("field_reports")
+          .update({ review_status: status, review_note: note })
+          .eq("id", report.id)
+          .eq("review_status", report.review_status || "pending")
+          .select()
+          .single();
+        if (result.error)
+          throw new Error(
+            "No se pudo guardar. El avance pudo cambiar o tu acceso no permite revisarlo; recarga e intenta de nuevo.",
+          );
+        updated = result.data;
+      }
+      persist({
+        ...data,
+        reports: data.reports.map((r) => (r.id === report.id ? updated : r)),
+      });
+      setNotice(
+        status === "approved"
+          ? "Avance aprobado."
+          : "Avance devuelto con observaciones.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   async function submitReport() {
     const values = reportSchema.parse(report);
     const id = reportEventId.current || crypto.randomUUID();
@@ -542,7 +596,7 @@ export function Workspace({
         <div className="workspace-label">ESPACIO DE TRABAJO</div>
         <nav aria-label="Navegación principal">
           {tabs
-            .filter((t) => t.id !== "contacts" || canManage)
+            .filter((t) => !["contacts", "review"].includes(t.id) || canManage)
             .map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -653,6 +707,7 @@ export function Workspace({
                         projects: "Cada obra, en su lugar.",
                         estimates: "Cada oportunidad, en su etapa.",
                         field: "Cuéntanos cómo va la obra.",
+                        review: "Revisa y aprueba los avances.",
                         settings: "La base de tu espacio.",
                       }[tab]
                     }
@@ -670,6 +725,8 @@ export function Workspace({
                           "Cantidades claras. Precios revisados. Sin perder el detalle.",
                         field:
                           "Comparte lo que avanzaste con texto, fotos o una nota de voz.",
+                        review:
+                          "Fotos, audio, horas y materiales, antes de aprobar.",
                         settings:
                           "Conexiones, acceso y estado de esta primera versión.",
                       }[tab]
@@ -704,6 +761,39 @@ export function Workspace({
                   run={run}
                   busy={busy}
                 />
+              )}
+              {tab === "review" && canManage && (
+                <ProgressReview
+                  data={data}
+                  busy={busy}
+                  review={reviewReport}
+                  open={(id) =>
+                    setSelected(namedProjects.find((p) => p.id === id) || null)
+                  }
+                />
+              )}
+              {canManage && ["overview", "field"].includes(tab) && (
+                <button
+                  className="review-inbox-link"
+                  onClick={() => navigate("review")}
+                >
+                  <span>
+                    <strong>
+                      Avances por revisar:{" "}
+                      {
+                        data.reports.filter(
+                          (r) =>
+                            !r.review_status || r.review_status === "pending",
+                        ).length
+                      }
+                    </strong>
+                    <small>
+                      Abre fotos y audio, revisa horas y rollos, y registra tu
+                      decisión.
+                    </small>
+                  </span>
+                  <span>Revisar avances →</span>
+                </button>
               )}
               {tab === "overview" && (
                 <>
@@ -743,6 +833,7 @@ export function Workspace({
                               <ProgressAttachments
                                 attachments={r.attachments}
                               />
+                              <ReviewStatus report={r} />
                             </div>
                             <span className="muted small">
                               {num(r.hours)} h · {num(r.rolls)} rollos

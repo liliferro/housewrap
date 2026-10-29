@@ -1,5 +1,6 @@
 "use client";
 import { ProjectDetailsPanel } from "./project-detail-fields";
+import { ReviewStatus } from "./progress-review";
 import { ProgressAttachments } from "./progress-media";
 import { useState } from "react";
 import {
@@ -341,6 +342,7 @@ export function ProjectDashboard({
                 {r.notes || "Avance con archivos adjuntos"}
               </p>
               <ProgressAttachments attachments={r.attachments} />
+              <ReviewStatus report={r} />
               <p>
                 <b>{num(Number(r.hours))} h</b> reportadas ·{" "}
                 <b>{num(Number(r.rolls))} rollos</b> utilizados

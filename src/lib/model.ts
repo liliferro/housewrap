@@ -37,6 +37,10 @@ export type Estimate = {
   created_at: string;
 };
 export type Report = {
+  review_status?: "pending" | "approved" | "observed";
+  review_note?: string;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
   attachments?: Attachment[];
   id: string;
   project_id: string;
