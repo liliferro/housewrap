@@ -82,9 +82,9 @@ type Tab =
   | "review"
   | "settings";
 const tabs = [
+  { id: "overview" as const, label: "Vista general", icon: LayoutDashboard },
   { id: "workers" as const, label: "Trabajadores", icon: HardHat },
   { id: "contacts" as const, label: "Builders y contactos", icon: Building2 },
-  { id: "overview" as const, label: "Vista general", icon: LayoutDashboard },
   { id: "projects" as const, label: "Obras", icon: Building2 },
   { id: "estimates" as const, label: "Estimados", icon: FileText },
   { id: "field" as const, label: "Avances de obra", icon: HardHat },
@@ -676,7 +676,7 @@ export function Workspace({
   return (
     <div className="workspace">
       <aside className="sidebar">
-        <Link href="/">
+        <Link href={demo ? "/demo" : "/app"}>
           <Brand dark />
         </Link>
         <div className="workspace-label">ESPACIO DE TRABAJO</div>
