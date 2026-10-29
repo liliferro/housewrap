@@ -1,3 +1,4 @@
+import type { Attachment } from "./progress-media";
 import { z } from "zod";
 import type { ProjectDetails } from "./project-details";
 export type Project = Partial<ProjectDetails> & {
@@ -34,6 +35,7 @@ export type Estimate = {
   created_at: string;
 };
 export type Report = {
+  attachments?: Attachment[];
   id: string;
   project_id: string;
   author_id?: string;
@@ -118,7 +120,7 @@ export const projectSchema = z.object({
 export const reportSchema = z.object({
   author_name: z.string().trim().min(2).max(100).optional(),
   project_id: z.string().uuid(),
-  notes: z.string().trim().min(5).max(2000),
+  notes: z.string().trim().max(2000),
   hours: z.coerce.number().min(0).max(24),
   rolls: z.coerce.number().min(0).max(100),
 });

@@ -26,7 +26,7 @@ test("create a project, calculate an estimate, report and retain the data", asyn
   await page.getByRole("button", { name: "Aprobar", exact: true }).click();
   await expect(page.getByText("Aprobado", { exact: true })).toBeVisible();
   await page
-    .getByRole("button", { name: "Reportes de campo", exact: true })
+    .getByRole("button", { name: "Avances de obra", exact: true })
     .click();
   await page
     .getByLabel("¿En qué obra trabajaste?")
@@ -38,7 +38,7 @@ test("create a project, calculate an estimate, report and retain the data", asyn
   await page.getByLabel("Horas reportadas").fill("7.5");
   await page.getByLabel("Rollos utilizados").fill("2");
   await page.getByRole("button", { name: "Confirmar y enviar" }).click();
-  await expect(page.getByRole("status")).toContainText("Reporte recibido");
+  await expect(page.getByRole("status")).toContainText("Avance recibido");
   await page.reload();
   await page
     .getByRole("button", { name: "Vista general", exact: true })

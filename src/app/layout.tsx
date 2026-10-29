@@ -14,7 +14,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Quality Housewrap | Operations",
   description:
-    "El espacio de trabajo de Quality Housewrap. Obras, estimados y reportes de campo.",
+    "El espacio de trabajo de Quality Housewrap. Obras, estimados y avances de obra.",
   robots: { index: false, follow: false },
 };
 export default function RootLayout({

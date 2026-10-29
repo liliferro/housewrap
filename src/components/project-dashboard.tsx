@@ -1,5 +1,6 @@
 "use client";
 import { ProjectDetailsPanel } from "./project-detail-fields";
+import { ProgressAttachments } from "./progress-media";
 import { useState } from "react";
 import {
   type Data,
@@ -95,7 +96,7 @@ export function ProjectDashboard({
           <small>
             {canManage
               ? "Reportados · pendientes de revisión"
-              : "Tus reportes visibles"}
+              : "Tus avances visibles"}
             {m.quote ? ` · ${num(m.quote.rolls)} previstos` : ""}
           </small>
         </article>
@@ -105,7 +106,7 @@ export function ProjectDashboard({
           <small>
             {canManage
               ? "Suma de horas de trabajadores"
-              : "Tus reportes visibles"}{" "}
+              : "Tus avances visibles"}{" "}
             · no es nómina
           </small>
         </article>
@@ -314,16 +315,16 @@ export function ProjectDashboard({
       )}
       <section className="panel dashboard-panel">
         <h3>
-          Reportes de los trabajadores <span>({m.reports.length})</span>
+          Avances de los trabajadores <span>({m.reports.length})</span>
         </h3>
         {!canManage && (
           <p className="muted">
-            Aquí se muestran únicamente los reportes que tu acceso permite
+            Aquí se muestran únicamente los avances que tu acceso permite
             consultar.
           </p>
         )}
         {!m.reports.length ? (
-          <p>Sin reportes recibidos para esta obra.</p>
+          <p>Sin avances recibidos para esta obra.</p>
         ) : (
           m.reports.map((r) => (
             <article className="worker-report" key={r.id}>
@@ -336,13 +337,16 @@ export function ProjectDashboard({
                 </strong>
                 <time dateTime={r.created_at}>{date(r.created_at)}</time>
               </header>
-              <p className="report-notes">{r.notes}</p>
+              <p className="report-notes">
+                {r.notes || "Avance con archivos adjuntos"}
+              </p>
+              <ProgressAttachments attachments={r.attachments} />
               <p>
                 <b>{num(Number(r.hours))} h</b> reportadas ·{" "}
                 <b>{num(Number(r.rolls))} rollos</b> utilizados
               </p>
               <small className="muted">
-                Pendiente de revisión · nombre declarado en el reporte
+                Pendiente de revisión · nombre declarado en el avance
               </small>
             </article>
           ))

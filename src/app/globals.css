@@ -1600,3 +1600,40 @@ summary {
   height: 18px;
   flex-shrink: 0;
 }
+
+.progress-media {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  margin: 20px 0;
+}
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin: 14px 0;
+}
+.media-grid figure {
+  margin: 0;
+  min-width: 0;
+}
+.media-grid img {
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+.media-grid audio {
+  width: 100%;
+  max-width: 100%;
+}
+.media-grid figcaption {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  margin: 8px 0;
+}
+.progress-media input[type="file"] {
+  max-width: 100%;
+  font-size: 12px;
+  padding: 10px;
+}

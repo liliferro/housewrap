@@ -67,7 +67,7 @@ export default function Home() {
               ClipboardCheck,
               "03",
               "Campo sin libreta",
-              "Reportes claros en español, desde el teléfono.",
+              "Avances con texto, fotos y voz desde el teléfono.",
             ],
           ].map(([Icon, n, title, body]) => {
             const I = Icon as typeof Layers;

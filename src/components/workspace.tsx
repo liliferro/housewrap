@@ -35,6 +35,13 @@ import { parseProjectDetails } from "@/lib/project-details";
 import { AddressInput } from "./address-input";
 import { parseProjectAddress } from "@/lib/address";
 import { ProjectDashboard } from "./project-dashboard";
+import { MediaComposer, ProgressAttachments } from "./progress-media";
+import {
+  mediaStore,
+  sendProgress,
+  validateMedia,
+  type PendingMedia,
+} from "@/lib/progress-media";
 import { Brand } from "./brand";
 import { browserDb } from "@/lib/supabase";
 import {
@@ -56,7 +63,7 @@ const tabs = [
   { id: "overview" as const, label: "Vista general", icon: LayoutDashboard },
   { id: "projects" as const, label: "Obras", icon: Building2 },
   { id: "estimates" as const, label: "Estimados", icon: FileText },
-  { id: "field" as const, label: "Reportes de campo", icon: HardHat },
+  { id: "field" as const, label: "Avances de obra", icon: HardHat },
   { id: "settings" as const, label: "Configuración", icon: Settings },
 ];
 const empty: Data = {
@@ -152,6 +159,8 @@ export function Workspace({
     waste: 8,
     roll_size: 1350,
   });
+  const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([]);
+  const [mediaRecording, setMediaRecording] = useState(false);
   const [report, setReport] = useState({
     author_name: "",
     project_id: "",
@@ -245,6 +254,15 @@ export function Workspace({
           const saved = JSON.parse(draft);
           setReport({ author_name: "", ...saved });
           reportEventId.current = saved.client_id || null;
+          try {
+            const files = await mediaStore("get", draftKey);
+            if (alive && Array.isArray(files)) setPendingMedia(files);
+          } catch {
+            if (alive)
+              setNotice(
+                "Se recuperó el texto del borrador, pero no sus archivos. Vuelve a adjuntarlos.",
+              );
+          }
         }
       } catch (e) {
         if (alive)
@@ -424,40 +442,29 @@ export function Workspace({
     const values = reportSchema.parse(report);
     const id = reportEventId.current || crypto.randomUUID();
     reportEventId.current = id;
-    let row = {
-      ...values,
-      id,
-      created_at: new Date().toISOString(),
-      author_id: userId,
-    };
-    if (!demo) {
-      const { error } = await browserDb()
-        .from("field_reports")
-        .upsert(
-          { ...values, id, author_id: userId },
-          { onConflict: "id", ignoreDuplicates: true },
-        );
-      if (error)
-        throw new Error(
-          "No se pudo enviar. Conserva el borrador en este teléfono y vuelve a intentar.",
-        );
-      const received = await browserDb()
-        .from("field_reports")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (received.error)
-        throw new Error(
-          "No pudimos confirmar la recepción. Conserva el borrador y vuelve a intentar.",
-        );
-      row = received.data;
-    }
+    validateMedia(pendingMedia);
+    if (values.notes.length < 5 && !pendingMedia.length)
+      throw new Error(
+        "Escribe al menos 5 caracteres o adjunta una foto o nota de voz.",
+      );
+    const row = await sendProgress(
+      {
+        ...values,
+        id,
+        created_at: new Date().toISOString(),
+        author_id: userId,
+      },
+      pendingMedia,
+      demo,
+    );
     persist({
       ...data,
       reports: [row, ...data.reports.filter((r) => r.id !== id)],
     });
     reportEventId.current = null;
     localStorage.removeItem(draftKey);
+    void mediaStore("delete", draftKey).catch(() => {});
+    setPendingMedia([]);
     setReport({
       author_name: report.author_name,
       project_id: "",
@@ -466,7 +473,7 @@ export function Workspace({
       rolls: "",
     });
     setNotice(
-      "Reporte recibido. Las horas y el material quedan pendientes de revisión.",
+      "Avance recibido. Las horas y el material quedan pendientes de revisión.",
     );
   }
   function exportEstimate(e: Estimate) {
@@ -617,7 +624,7 @@ export function Workspace({
                         estimates:
                           "Cantidades claras. Precios revisados. Sin perder el detalle.",
                         field:
-                          "Escribe lo que hiciste y revisa los datos antes de enviar.",
+                          "Comparte lo que avanzaste con texto, fotos o una nota de voz.",
                         settings:
                           "Conexiones, acceso y estado de esta primera versión.",
                       }[tab]
@@ -690,7 +697,7 @@ export function Workspace({
                     </article>
                     <article>
                       <span>
-                        Reportes recibidos <ClipboardList size={18} />
+                        Avances recibidos <ClipboardList size={18} />
                       </span>
                       <strong>
                         {data.reports.length.toString().padStart(2, "0")}
@@ -735,7 +742,7 @@ export function Workspace({
                         className="button light"
                         onClick={() => navigate("field")}
                       >
-                        Crear un reporte <ArrowRight size={17} />
+                        Registrar avance <ArrowRight size={17} />
                       </button>
                       <div className="promo-lines" aria-hidden="true">
                         <i />
@@ -747,7 +754,7 @@ export function Workspace({
                   <section className="panel activity-panel">
                     <div className="section-head">
                       <h2>Lo último del equipo</h2>
-                      <span className="muted small">Reportes de campo</span>
+                      <span className="muted small">Avances de obra</span>
                     </div>
                     {data.reports.length ? (
                       data.reports.slice(0, 4).map((r) => (
@@ -760,7 +767,8 @@ export function Workspace({
                               {data.projects.find((p) => p.id === r.project_id)
                                 ?.name || "Obra asignada"}
                             </strong>
-                            <p>{r.notes}</p>
+                            <p>{r.notes || "Avance con archivos adjuntos"}</p>
+                            <ProgressAttachments attachments={r.attachments} />
                           </div>
                           <span className="muted small">
                             {num(r.hours)} h · {num(r.rolls)} rollos
@@ -770,7 +778,7 @@ export function Workspace({
                     ) : (
                       <div className="empty-inline">
                         <Clock size={22} />
-                        <span>Los reportes de tu equipo aparecerán aquí.</span>
+                        <span>Los avances de tu equipo aparecerán aquí.</span>
                         <button
                           className="text-link"
                           onClick={() => navigate("field")}
@@ -879,7 +887,7 @@ export function Workspace({
                 <div className="field-grid">
                   <section className="panel field-form">
                     <div className="section-head">
-                      <h2>Reporte del día</h2>
+                      <h2>Nuevo avance</h2>
                       <span className="tag">ESPAÑOL</span>
                     </div>
                     <form
@@ -923,8 +931,8 @@ export function Workspace({
                       <label>
                         ¿Qué hiciste y qué quedó pendiente?
                         <textarea
-                          required
-                          minLength={5}
+                          required={!pendingMedia.length}
+                          minLength={pendingMedia.length ? undefined : 5}
                           maxLength={2000}
                           rows={5}
                           placeholder="Por ejemplo: terminamos el muro norte. Falta revisar el flashing de dos ventanas."
@@ -934,6 +942,12 @@ export function Workspace({
                           }
                         />
                       </label>
+                      <MediaComposer
+                        files={pendingMedia}
+                        onChange={setPendingMedia}
+                        disabled={busy}
+                        onRecording={setMediaRecording}
+                      />
                       <div className="form-grid">
                         <label>
                           Horas reportadas
@@ -971,7 +985,9 @@ export function Workspace({
                       <div className="actions">
                         <button
                           className="button primary"
-                          disabled={busy || !data.projects.length}
+                          disabled={
+                            busy || mediaRecording || !data.projects.length
+                          }
                         >
                           {busy ? "Enviando…" : "Confirmar y enviar"}{" "}
                           <ArrowRight size={18} />
@@ -979,8 +995,10 @@ export function Workspace({
                         <button
                           type="button"
                           className="button outline"
-                          onClick={() => {
+                          disabled={busy || mediaRecording}
+                          onClick={async () => {
                             try {
+                              await mediaStore("put", draftKey, pendingMedia);
                               localStorage.setItem(
                                 draftKey,
                                 JSON.stringify({
@@ -989,7 +1007,7 @@ export function Workspace({
                                 }),
                               );
                               setNotice(
-                                "Borrador guardado solo en este teléfono. Ábrelo aquí y envíalo cuando tengas conexión.",
+                                "Borrador con archivos guardado solo en este dispositivo. Ábrelo aquí y envíalo cuando tengas conexión.",
                               );
                             } catch {
                               setError(
@@ -1024,9 +1042,8 @@ export function Workspace({
                       <b>3</b> Revisa y envía.
                     </div>
                     <p className="small muted">
-                      En esta versión la captura es por texto. Voz, fotos y
-                      sincronización automática se incorporarán después de
-                      validar este recorrido.
+                      Escribe, adjunta fotos o graba una nota de voz. Revisa los
+                      archivos antes de compartir el avance con tu equipo.
                     </p>
                   </aside>
                 </div>
@@ -1060,6 +1077,14 @@ export function Workspace({
                               "¿Restablecer solo los datos de esta demostración?",
                             )
                           ) {
+                            for (const advance of data.reports)
+                              for (const item of advance.attachments || [])
+                                if (item.path.startsWith("demo/"))
+                                  void mediaStore("delete", item.path).catch(
+                                    () => {},
+                                  );
+                            void mediaStore("delete", draftKey).catch(() => {});
+                            setPendingMedia([]);
                             persist(withDirectory(demoData()));
                             localStorage.removeItem(draftKey);
                             setReport({
@@ -1080,12 +1105,11 @@ export function Workspace({
                   <section className="panel settings-panel">
                     <h2>Estado del desarrollo</h2>
                     <p>
-                      <Check size={16} /> Obras, estimados manuales y reportes
-                      de texto.
+                      <Check size={16} /> Obras, estimados manuales y avances
+                      con texto, fotos y voz.
                     </p>
                     <p>
-                      <Clock size={16} /> Medición IA, voz y archivos:
-                      pendientes.
+                      <Clock size={16} /> Medición IA y planos: pendientes.
                     </p>
                     <p>
                       <Clock size={16} /> Mensajería y aprobación del builder:
@@ -1450,7 +1474,7 @@ export function Workspace({
                   data.reports.filter((r) => r.project_id === selected.id)
                     .length
                 }{" "}
-                reportes
+                avances
               </p>
               {canManage && (
                 <label>
@@ -1507,7 +1531,7 @@ export function Workspace({
                   navigate("field");
                 }}
               >
-                Registrar reporte <ArrowRight size={16} />
+                Registrar avance <ArrowRight size={16} />
               </button>
             </div>
           </ProjectDashboard>
@@ -1546,7 +1570,7 @@ function ProjectList({
   ) : (
     <Empty
       title="Todo listo para tu primera obra."
-      text="Agrega una obra para empezar a organizar estimados y reportes."
+      text="Agrega una obra para empezar a organizar estimados y avances."
     />
   );
 }
