@@ -156,6 +156,14 @@ export function Workspace({
   });
   const canManage = demo || ["owner", "office"].includes(role);
   const canApprove = demo || role === "owner";
+  useEffect(() => {
+    const syncProject = () => {
+      const id = new URLSearchParams(window.location.hash.slice(1)).get("obra");
+      setSelectedState(data.projects.find((p) => p.id === id) || null);
+    };
+    window.addEventListener("hashchange", syncProject);
+    return () => window.removeEventListener("hashchange", syncProject);
+  }, [data.projects]);
   const draftKey = `qh-report-draft-v1-${demo ? "demo" : userId}`;
   const reportEventId = useRef<string | null>(null);
   useEffect(() => {
