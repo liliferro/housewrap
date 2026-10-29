@@ -34,6 +34,7 @@ import { ProjectDetailFields } from "./project-detail-fields";
 import { parseProjectDetails } from "@/lib/project-details";
 import { AddressInput } from "./address-input";
 import { parseProjectAddress } from "@/lib/address";
+import { EstimateProjectInfo } from "./estimate-project-info";
 import { OperationsDashboard } from "./operations-dashboard";
 import { ProjectDashboard } from "./project-dashboard";
 import { MediaComposer, ProgressAttachments } from "./progress-media";
@@ -763,14 +764,18 @@ export function Workspace({
                             {data.estimates.map((e) => (
                               <tr key={e.id}>
                                 <td>
-                                  <strong>
-                                    {
-                                      data.projects.find(
-                                        (p) => p.id === e.project_id,
-                                      )?.name
+                                  <EstimateProjectInfo
+                                    data={data}
+                                    projectId={e.project_id}
+                                    open={() =>
+                                      setSelected(
+                                        namedProjects.find(
+                                          (p) => p.id === e.project_id,
+                                        ) || null,
+                                      )
                                     }
-                                  </strong>
-                                  <small>{e.id.slice(0, 8)}</small>
+                                  />
+                                  <small>Estimado #{e.id.slice(0, 8)}</small>
                                 </td>
                                 <td>{num(e.area)} ft²</td>
                                 <td>{e.rolls} rollos</td>

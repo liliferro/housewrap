@@ -245,3 +245,6 @@ create policy progress_media_upload on storage.objects for insert to authenticat
 create policy progress_media_remove_draft on storage.objects for delete to authenticated using(bucket_id='progress-media' and (storage.foldername(storage.objects.name))[1]=(select auth.uid())::text and private.has_role(array['owner','office','worker','crew_lead']) and not exists(select 1 from public.field_reports r where r.id::text=(storage.foldername(storage.objects.name))[3]));
 
 commit;
+
+-- Operational zone shared by works and estimates
+alter table public.projects add column zone text not null default '' check (length(zone) <= 120);

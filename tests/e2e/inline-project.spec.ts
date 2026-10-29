@@ -17,7 +17,7 @@ test("create a work inside an estimate without losing values, including an empty
     ),
   );
   await page.reload();
-  await page.getByRole("button", { name: "Estimados", exact: true }).click();
+  await page.getByRole("button", { name: /^Estimados/ }).click();
   await page
     .getByRole("button", { name: "Nuevo estimado", exact: true })
     .click();
@@ -44,6 +44,7 @@ test("create a work inside an estimate without losing values, including an empty
     .getByLabel("Correo electrónico (opcional)")
     .fill("laura@example.com");
   await fillAddress(page);
+  await page.getByLabel("Zona o sector (opcional)").fill("Marietta norte");
   await page
     .getByLabel("Tipo de proyecto", { exact: true })
     .selectOption("multi_family");
@@ -87,6 +88,16 @@ test("create a work inside an estimate without losing values, including an empty
     page.getByRole("cell", { name: "$6,000.00", exact: true }),
   ).toBeVisible();
   await page.reload();
+  await page.getByRole("button", { name: /^Estimados/ }).click();
+  await expect(page.locator(".estimate-work-info")).toContainText(
+    "Marietta norte",
+  );
+  await expect(page.locator(".estimate-work-info")).toContainText("Laura QA");
+  await expect(
+    page
+      .locator(".estimate-work-info")
+      .getByRole("link", { name: "laura@example.com" }),
+  ).toHaveAttribute("href", "mailto:laura@example.com");
   const data = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("qh-demo-v1")!),
   );
@@ -96,6 +107,7 @@ test("create a work inside an estimate without losing values, including an empty
   expect(data.estimates[0].total).toBe(6000);
   expect(data.projects[0].project_type).toBe("multi_family");
   expect(data.projects[0].lot_unit).toBe("Lot 24 · Unidad B");
+  expect(data.projects[0].zone).toBe("Marietta norte");
   await page.getByRole("button", { name: /Obra desde estimado/ }).click();
   const panel = page
     .getByRole("dialog")

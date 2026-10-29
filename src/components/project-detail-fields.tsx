@@ -12,6 +12,15 @@ export function ProjectDetailFields({ project }: { project?: Project }) {
     <>
       <div className="form-grid">
         <label>
+          Zona o sector (opcional)
+          <input
+            name="zone"
+            maxLength={120}
+            defaultValue={project?.zone || ""}
+            placeholder="Marietta · Sector norte"
+          />
+        </label>
+        <label>
           Tipo de proyecto
           <select
             name="project_type"
@@ -118,6 +127,8 @@ export function ProjectDetailsPanel({
     <section className="panel dashboard-panel">
       <h3>Ficha de la obra</h3>
       <dl>
+        <dt>Zona o sector</dt>
+        <dd>{project.zone || "Sin registrar"}</dd>
         <dt>Tipo de proyecto</dt>
         <dd>
           {project.project_type

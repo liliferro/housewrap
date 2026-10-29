@@ -29,6 +29,7 @@ export const projectDetailsSchema = z.object({
     .transform((v) => v || null),
   priority: z.enum(["normal", "high", "urgent"]).optional().default("normal"),
   lot_unit: optionalText(80),
+  zone: optionalText(120),
   notes: optionalText(3000),
   access_notes: optionalText(1000),
   planned_start: z

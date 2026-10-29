@@ -1802,3 +1802,25 @@ summary {
     gap: 12px;
   }
 }
+
+.estimate-work-info {
+  display: grid;
+  gap: 7px;
+  min-width: 230px;
+  max-width: 390px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 6px 0 12px;
+}
+.estimate-work-info .text-link {
+  font-size: 16px;
+  text-align: left;
+  margin-bottom: 4px;
+}
+.estimate-work-info a {
+  color: #287337;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
