@@ -59,10 +59,7 @@ test("installed area moves progress only after review approval", async ({
   await expect(
     page.getByRole("progressbar", { name: "Avance de Area QA" }),
   ).toHaveAttribute("value", "0");
-  await page
-    .getByRole("button", { name: "Revisar avances", exact: true })
-    .first()
-    .click();
+  await page.getByText("Revisar y aprobar avance", {exact:true}).click();
   await expect(
     page.getByText("Área instalada: 600 ft²", { exact: true }),
   ).toBeVisible();

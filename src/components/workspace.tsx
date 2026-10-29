@@ -44,7 +44,7 @@ import { parseProjectAddress } from "@/lib/address";
 import { WorkersModule } from "./workers";
 import { WorkerFields, AssignmentEditor } from "./worker-assignments";
 import { localDate } from "@/lib/workers";
-import { ProgressReview, ReviewStatus } from "./progress-review";
+import { ProgressReview, ReviewStatus, ReviewCard } from "./progress-review";
 import { SalesPipeline } from "./sales-pipeline";
 import { type PipelineStage, pipelineOpportunity } from "@/lib/pipeline";
 import { EstimateProjectInfo } from "./estimate-project-info";
@@ -947,6 +947,26 @@ export function Workspace({
                                 attachments={r.attachments}
                               />
                               <ReviewStatus report={r} />
+                              {canManage && r.review_status !== "approved" && (
+                                <details className="activity-review">
+                                  <summary className="text-link">
+                                    Revisar y aprobar avance
+                                  </summary>
+                                  <ReviewCard
+                                    report={r}
+                                    data={data}
+                                    busy={busy}
+                                    review={reviewReport}
+                                    open={(id) =>
+                                      setSelected(
+                                        namedProjects.find(
+                                          (p) => p.id === id,
+                                        ) || null,
+                                      )
+                                    }
+                                  />
+                                </details>
+                              )}
                             </div>
                             <span className="muted small">
                               {num(r.hours)} h · {num(r.rolls)} rollos

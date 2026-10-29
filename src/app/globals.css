@@ -2120,3 +2120,7 @@ summary {
   cursor: pointer;
   color: #27833b;
 }
+
+.activity-review { margin-top: 12px; }
+.activity-review summary { cursor: pointer; }
+.activity-review .review-card { margin-top: 12px; }

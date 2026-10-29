@@ -28,7 +28,7 @@ export function ReviewStatus({ report }: { report: Report }) {
     </div>
   );
 }
-function ReviewCard({
+export function ReviewCard({
   report,
   data,
   busy,
