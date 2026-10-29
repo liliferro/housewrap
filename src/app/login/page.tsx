@@ -57,8 +57,8 @@ export default function Login() {
           </label>
           {!configured() && (
             <p className="notice">
-              El acceso del equipo estará disponible al conectar la base de
-              datos. Puedes revisar la demostración.
+              El acceso del equipo no está disponible en este momento.
+              Contacta al administrador.
             </p>
           )}
           {error && (
@@ -70,9 +70,6 @@ export default function Login() {
             {busy ? "Entrando…" : "Entrar"}
           </button>
         </form>
-        <Link className="text-link" href="/demo">
-          Ver demostración con datos de ejemplo →
-        </Link>
         <p className="small muted">
           Para obtener o recuperar acceso, contacta al administrador de Quality
           Housewrap.
