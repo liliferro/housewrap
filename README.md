@@ -47,3 +47,9 @@ Connect GitHub `liliferro/housewrap` to the Vercel project `housewrap`, framewor
 The reviewed 0.3 specification remains the product plan; no automated measurement accuracy or delivery completion is claimed by this foundation.
 
 Existing works retain their original builder text for backward compatibility; the UI reads the linked builder name. Existing works without a known contact show a pending assignment; new works require a named contact. Demo data is upgraded in place without deleting saved works.
+
+## Per-project dashboard
+
+Open any work to view its dashboard; its #obra= link can be reopened or shared with authorized teammates. Office/owner users select one approved estimate as the quoted reference (versions are never summed), record manual progress and actual start/end timestamps, and see all visible worker reports with roll/hour totals. Worker views retain existing RLS restrictions and do not expose estimate amounts. Calendar elapsed hours and reported labor hours are separate; reports remain pending review. New reports capture a declared worker name while auth.user remains the authoritative author identity. No historical start dates or progress are fabricated for existing works.
+
+Validation: tests/project-dashboard.test.ts, the desktop/mobile workspace flow, and supabase/tests/project-dashboard.sql (transaction rolled back).

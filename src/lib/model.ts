@@ -5,6 +5,11 @@ export type Project = {
   builder: string;
   builder_id?: string | null;
   contact_id?: string | null;
+  progress?: number;
+  progress_notes?: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  quoted_estimate_id?: string | null;
   address: string;
   status: "scheduled" | "active" | "done";
   target_date: string | null;
@@ -26,6 +31,7 @@ export type Report = {
   id: string;
   project_id: string;
   author_id?: string;
+  author_name?: string | null;
   notes: string;
   hours: number;
   rolls: number;
@@ -104,6 +110,7 @@ export const projectSchema = z.object({
     .or(z.literal("")),
 });
 export const reportSchema = z.object({
+  author_name: z.string().trim().min(2).max(100).optional(),
   project_id: z.string().uuid(),
   notes: z.string().trim().min(5).max(2000),
   hours: z.coerce.number().min(0).max(24),

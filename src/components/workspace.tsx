@@ -30,6 +30,7 @@ import {
   resolveContact,
 } from "./contacts";
 import { withDirectory } from "@/lib/model";
+import { ProjectDashboard } from "./project-dashboard";
 import { Brand } from "./brand";
 import { browserDb } from "@/lib/supabase";
 import {
@@ -64,10 +65,12 @@ const empty: Data = {
 const demoKey = "qh-demo-v1";
 function Modal({
   title,
+  wide = false,
   close,
   children,
 }: {
   title: string;
+  wide?: boolean;
   close: () => void;
   children: React.ReactNode;
 }) {
@@ -77,6 +80,7 @@ function Modal({
   }, []);
   return (
     <dialog
+      className={wide ? "dashboard-dialog" : undefined}
       ref={ref}
       onCancel={close}
       onClick={(e) => {
@@ -124,7 +128,18 @@ export function Workspace({
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"project" | "estimate" | null>(null);
-  const [selected, setSelected] = useState<Project | null>(null);
+  const [estimateProject, setEstimateProject] = useState("");
+  const [selected, setSelectedState] = useState<Project | null>(null);
+  function setSelected(p: Project | null) {
+    setSelectedState(p);
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname +
+        window.location.search +
+        (p ? `#obra=${p.id}` : ""),
+    );
+  }
   const [busy, setBusy] = useState(false);
   const [calc, setCalc] = useState({
     area: 2400,
@@ -133,6 +148,7 @@ export function Workspace({
     roll_size: 1350,
   });
   const [report, setReport] = useState({
+    author_name: "",
     project_id: "",
     notes: "",
     hours: "",
@@ -149,7 +165,16 @@ export function Workspace({
         if (demo) {
           const saved = localStorage.getItem(demoKey);
           if (alive) {
-            setData(withDirectory(saved ? JSON.parse(saved) : demoData()));
+            const loaded = withDirectory(
+              saved ? JSON.parse(saved) : demoData(),
+            );
+            setData(loaded);
+            const projectId = new URLSearchParams(
+              window.location.hash.slice(1),
+            ).get("obra");
+            setSelectedState(
+              loaded.projects.find((p) => p.id === projectId) || null,
+            );
             setRole("owner");
           }
         } else {
@@ -194,12 +219,18 @@ export function Workspace({
               reports: r.data || [],
             });
             setRole(m.data.role);
+            const projectId = new URLSearchParams(
+              window.location.hash.slice(1),
+            ).get("obra");
+            setSelectedState(
+              (p.data || []).find((p) => p.id === projectId) || null,
+            );
           }
         }
         const draft = localStorage.getItem(draftKey);
         if (draft && alive) {
           const saved = JSON.parse(draft);
-          setReport(saved);
+          setReport({ author_name: "", ...saved });
           reportEventId.current = saved.client_id || null;
         }
       } catch (e) {
@@ -404,7 +435,13 @@ export function Workspace({
     });
     reportEventId.current = null;
     localStorage.removeItem(draftKey);
-    setReport({ project_id: "", notes: "", hours: "", rolls: "" });
+    setReport({
+      author_name: report.author_name,
+      project_id: "",
+      notes: "",
+      hours: "",
+      rolls: "",
+    });
     setNotice(
       "Reporte recibido. Las horas y el material quedan pendientes de revisión.",
     );
@@ -844,6 +881,21 @@ export function Workspace({
                         </select>
                       </label>
                       <label>
+                        Nombre del trabajador
+                        <input
+                          required
+                          minLength={2}
+                          maxLength={100}
+                          value={report.author_name}
+                          onChange={(e) =>
+                            setReport({
+                              ...report,
+                              author_name: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
                         ¿Qué hiciste y qué quedó pendiente?
                         <textarea
                           required
@@ -986,6 +1038,7 @@ export function Workspace({
                             persist(withDirectory(demoData()));
                             localStorage.removeItem(draftKey);
                             setReport({
+                              author_name: "",
                               project_id: "",
                               notes: "",
                               hours: "",
@@ -1083,7 +1136,13 @@ export function Workspace({
           >
             <label>
               Obra
-              <select name="project_id" aria-label="Obra" required autoFocus>
+              <select
+                name="project_id"
+                aria-label="Obra"
+                required
+                autoFocus
+                defaultValue={estimateProject || undefined}
+              >
                 {data.projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -1172,136 +1231,194 @@ export function Workspace({
         </Modal>
       )}
       {selected && (
-        <Modal title={selected.name} close={() => setSelected(null)}>
-          <div className="project-detail">
-            <Status status={selected.status} />
-            <p>
-              <strong>Builder</strong>
-              <br />
-              {data.builders.find((b) => b.id === selected.builder_id)?.name ||
-                selected.builder}
+        <Modal wide title={selected.name} close={() => setSelected(null)}>
+          {error && (
+            <p className="error" role="alert">
+              {error}
             </p>
-            <h3>Persona de contacto</h3>
-            <ContactInfo
-              contact={data.contacts.find((c) => c.id === selected.contact_id)}
-            />
-            {canManage && (
-              <details>
-                <summary>Cambiar builder o contacto de esta obra</summary>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const f = new FormData(e.currentTarget);
-                    void run(async () => {
-                      const { next, builder, contact } = await resolveContact(
-                        f,
-                        data,
-                        demo,
-                        persist,
-                      );
-                      const patch = {
-                        builder_id: builder.id,
-                        contact_id: contact.id,
-                        builder: builder.name,
-                      };
-                      if (!demo) {
-                        const result = await browserDb()
-                          .from("projects")
-                          .update(patch)
-                          .eq("id", selected.id)
-                          .select()
-                          .single();
-                        if (result.error)
-                          throw new Error(
-                            "No se pudo cambiar el contacto de la obra.",
-                          );
-                      }
-                      const updated = { ...selected, ...patch };
-                      persist({
-                        ...next,
-                        projects: next.projects.map((p) =>
-                          p.id === selected.id ? updated : p,
-                        ),
+          )}
+          <ProjectDashboard
+            project={selected}
+            data={data}
+            canManage={canManage}
+            busy={busy}
+            exportEstimate={exportEstimate}
+            save={async (patch) => {
+              setBusy(true);
+              try {
+                let updated = { ...selected, ...patch };
+                if (!demo) {
+                  const result = await browserDb()
+                    .from("projects")
+                    .update(patch)
+                    .eq("id", selected.id)
+                    .select()
+                    .single();
+                  if (result.error)
+                    throw new Error(
+                      "No se pudo guardar. Verifica las fechas y que el estimado esté aprobado.",
+                    );
+                  updated = result.data;
+                }
+                persist({
+                  ...data,
+                  projects: data.projects.map((p) =>
+                    p.id === selected.id ? updated : p,
+                  ),
+                });
+                setSelected(updated);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <div className="project-detail">
+              <Status status={selected.status} />
+              <p>
+                <strong>Builder</strong>
+                <br />
+                {data.builders.find((b) => b.id === selected.builder_id)
+                  ?.name || selected.builder}
+              </p>
+              <h3>Persona de contacto</h3>
+              <ContactInfo
+                contact={data.contacts.find(
+                  (c) => c.id === selected.contact_id,
+                )}
+              />
+              {canManage && (
+                <details>
+                  <summary>Cambiar builder o contacto de esta obra</summary>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const f = new FormData(e.currentTarget);
+                      void run(async () => {
+                        const { next, builder, contact } = await resolveContact(
+                          f,
+                          data,
+                          demo,
+                          persist,
+                        );
+                        const patch = {
+                          builder_id: builder.id,
+                          contact_id: contact.id,
+                          builder: builder.name,
+                        };
+                        if (!demo) {
+                          const result = await browserDb()
+                            .from("projects")
+                            .update(patch)
+                            .eq("id", selected.id)
+                            .select()
+                            .single();
+                          if (result.error)
+                            throw new Error(
+                              "No se pudo cambiar el contacto de la obra.",
+                            );
+                        }
+                        const updated = { ...selected, ...patch };
+                        persist({
+                          ...next,
+                          projects: next.projects.map((p) =>
+                            p.id === selected.id ? updated : p,
+                          ),
+                        });
+                        setSelected(updated);
                       });
-                      setSelected(updated);
-                    });
+                    }}
+                  >
+                    <RelationFields
+                      data={data}
+                      initialBuilder={selected.builder_id || ""}
+                      initialContact={selected.contact_id || ""}
+                    />
+                    <button className="button primary" disabled={busy}>
+                      Guardar contacto de la obra
+                    </button>
+                  </form>
+                </details>
+              )}
+              <p>
+                <strong>Dirección</strong>
+                <br />
+                {selected.address}
+              </p>
+              <p>
+                <strong>Fecha objetivo</strong>
+                <br />
+                {selected.target_date || "Por definir"}
+              </p>
+              <p>
+                {
+                  data.estimates.filter((e) => e.project_id === selected.id)
+                    .length
+                }{" "}
+                estimados ·{" "}
+                {
+                  data.reports.filter((r) => r.project_id === selected.id)
+                    .length
+                }{" "}
+                reportes
+              </p>
+              {canManage && (
+                <label>
+                  Estado de la obra
+                  <select
+                    value={selected.status}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const status = e.target.value as Project["status"];
+                      void run(async () => {
+                        if (!demo) {
+                          const { error } = await browserDb()
+                            .from("projects")
+                            .update({ status })
+                            .eq("id", selected.id);
+                          if (error)
+                            throw new Error("No se pudo cambiar el estado.");
+                        }
+                        const updated = { ...selected, status };
+                        persist({
+                          ...data,
+                          projects: data.projects.map((p) =>
+                            p.id === selected.id ? updated : p,
+                          ),
+                        });
+                        setSelected(updated);
+                      });
+                    }}
+                  >
+                    <option value="scheduled">Programada</option>
+                    <option value="active">En obra</option>
+                    <option value="done">Terminada</option>
+                  </select>
+                </label>
+              )}
+              {canManage && (
+                <button
+                  className="button primary"
+                  onClick={() => {
+                    setEstimateProject(selected.id);
+                    setSelected(null);
+                    setModal("estimate");
                   }}
                 >
-                  <RelationFields
-                    data={data}
-                    initialBuilder={selected.builder_id || ""}
-                    initialContact={selected.contact_id || ""}
-                  />
-                  <button className="button primary" disabled={busy}>
-                    Guardar contacto de la obra
-                  </button>
-                </form>
-              </details>
-            )}
-            <p>
-              <strong>Dirección</strong>
-              <br />
-              {selected.address}
-            </p>
-            <p>
-              <strong>Fecha objetivo</strong>
-              <br />
-              {selected.target_date || "Por definir"}
-            </p>
-            <p>
-              {
-                data.estimates.filter((e) => e.project_id === selected.id)
-                  .length
-              }{" "}
-              estimados ·{" "}
-              {data.reports.filter((r) => r.project_id === selected.id).length}{" "}
-              reportes
-            </p>
-            {canManage && (
-              <label>
-                Estado de la obra
-                <select
-                  value={selected.status}
-                  disabled={busy}
-                  onChange={(e) => {
-                    const status = e.target.value as Project["status"];
-                    void run(async () => {
-                      if (!demo) {
-                        const { error } = await browserDb()
-                          .from("projects")
-                          .update({ status })
-                          .eq("id", selected.id);
-                        if (error)
-                          throw new Error("No se pudo cambiar el estado.");
-                      }
-                      const updated = { ...selected, status };
-                      persist({
-                        ...data,
-                        projects: data.projects.map((p) =>
-                          p.id === selected.id ? updated : p,
-                        ),
-                      });
-                      setSelected(updated);
-                    });
-                  }}
-                >
-                  <option value="scheduled">Programada</option>
-                  <option value="active">En obra</option>
-                  <option value="done">Terminada</option>
-                </select>
-              </label>
-            )}
-            <button
-              className="button outline"
-              onClick={() => {
-                setReport({ ...report, project_id: selected.id });
-                setSelected(null);
-                navigate("field");
-              }}
-            >
-              Registrar reporte <ArrowRight size={16} />
-            </button>
-          </div>
+                  Preparar estimado de esta obra
+                </button>
+              )}
+              <button
+                className="button outline"
+                onClick={() => {
+                  setReport({ ...report, project_id: selected.id });
+                  setSelected(null);
+                  navigate("field");
+                }}
+              >
+                Registrar reporte <ArrowRight size={16} />
+              </button>
+            </div>
+          </ProjectDashboard>
         </Modal>
       )}
     </div>

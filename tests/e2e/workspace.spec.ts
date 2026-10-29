@@ -33,6 +33,7 @@ test("create a project, calculate an estimate, report and retain the data", asyn
   await page
     .getByLabel("¿Qué hiciste")
     .fill("Muro norte completo, flashing pendiente.");
+  await page.getByLabel("Nombre del trabajador").fill("Pedro QA");
   await page.getByLabel("Horas reportadas").fill("7.5");
   await page.getByLabel("Rollos utilizados").fill("2");
   await page.getByRole("button", { name: "Confirmar y enviar" }).click();
@@ -44,6 +45,36 @@ test("create a project, calculate an estimate, report and retain the data", asyn
   await expect(
     page.getByText("Muro norte completo, flashing pendiente."),
   ).toBeVisible();
+  await page.getByRole("button", { name: /Prueba QA/ }).click();
+  const dashboard = page.getByRole("dialog");
+  await expect(
+    dashboard.getByText("DASHBOARD DE OBRA", { exact: true }),
+  ).toBeVisible();
+  await expect(dashboard.getByText("Pedro QA", { exact: true })).toBeVisible();
+  await expect(dashboard.locator(".project-stats")).toContainText("7.5 h");
+  await dashboard
+    .getByLabel("Presupuesto cotizado de esta obra")
+    .selectOption({ index: 1 });
+  await expect(dashboard.locator(".project-stats")).toContainText("$3,000.00");
+  await dashboard
+    .getByText("Actualizar avance y fechas", { exact: true })
+    .click();
+  await dashboard.getByLabel("Avance (%)", { exact: true }).fill("40");
+  await dashboard
+    .getByLabel("Fecha y hora de inicio", { exact: true })
+    .fill("2026-10-28T08:00");
+  await dashboard
+    .getByRole("button", { name: "Guardar avance", exact: true })
+    .click();
+  await expect(dashboard.getByRole("progressbar")).toHaveAttribute(
+    "value",
+    "40",
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("dialog").getByRole("progressbar"),
+  ).toHaveAttribute("value", "40");
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

@@ -1470,3 +1470,89 @@ summary {
   cursor: pointer;
   margin: 16px 0;
 }
+
+.dashboard-dialog {
+  width: min(1200px, calc(100% - 24px));
+  padding: 28px;
+}
+.project-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.dashboard-panel {
+  padding: 24px;
+  margin: 20px 0;
+  min-width: 0;
+}
+.project-dashboard .stats {
+  margin: 20px 0;
+}
+.project-dashboard .stats strong {
+  font-size: 28px;
+}
+.project-dashboard progress {
+  width: 100%;
+  accent-color: var(--green);
+  height: 10px;
+}
+.dashboard-panel dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.dashboard-panel dd {
+  margin: 0;
+}
+.dashboard-panel dt,
+.worker-report time {
+  color: var(--muted);
+}
+.worker-report {
+  border-top: 1px solid var(--line);
+  padding: 20px 0;
+}
+.worker-report header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+}
+.report-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.estimate-history {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+}
+.estimate-history article {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.project-detail > .button {
+  margin: 12px 8px 0 0;
+}
+@media (max-width: 700px) {
+  .project-dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .dashboard-dialog {
+    padding: 18px;
+  }
+  .dashboard-panel {
+    padding: 18px;
+  }
+  .project-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+  .project-dashboard .stats strong {
+    font-size: 23px;
+  }
+}
