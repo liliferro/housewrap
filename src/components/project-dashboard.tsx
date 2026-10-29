@@ -1,4 +1,5 @@
 "use client";
+import { areaProgress } from "@/lib/area-progress";
 import { projectQuote } from "@/lib/quote";
 import { ProjectDetailsPanel } from "./project-detail-fields";
 import { ReviewStatus } from "./progress-review";
@@ -61,6 +62,7 @@ export function ProjectDashboard({
 }) {
   const [error, setError] = useState("");
   const m = projectMetrics(project, data);
+  const progress = areaProgress(project, data);
   return (
     <div className="project-dashboard">
       <p className="eyebrow">DASHBOARD DE OBRA</p>
@@ -84,13 +86,29 @@ export function ProjectDashboard({
         </article>
         <article>
           <span>Avance de obra</span>
-          <strong>{project.progress || 0}%</strong>
+          <strong>
+            {progress.percent == null
+              ? "Sin área de referencia"
+              : `${progress.percent}%`}
+          </strong>
           <progress
             max={100}
-            value={project.progress || 0}
+            value={progress.percent || 0}
             aria-label="Avance de obra"
           />
-          <small>Avance declarado por oficina</small>
+          <small>
+            {num(progress.area)} ft² aprobados /{" "}
+            {progress.target
+              ? `${num(progress.target)} ft² previstos`
+              : "sin estimado aprobado"}
+            .{" "}
+            {progress.missing
+              ? `${progress.missing} avances sin área registrada.`
+              : ""}{" "}
+            {progress.over
+              ? "Área superior al estimado: revisar duplicados o alcance."
+              : ""}
+          </small>
         </article>
         <article>
           <span>Rollos usados</span>
@@ -159,7 +177,6 @@ export function ProjectDashboard({
                   }
                   try {
                     await save({
-                      progress: Number(f.get("progress")),
                       progress_notes: String(
                         f.get("progress_notes") || "",
                       ).trim(),
@@ -180,18 +197,10 @@ export function ProjectDashboard({
                   }
                 }}
               >
-                <label>
-                  Avance (%)
-                  <input
-                    name="progress"
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    required
-                    defaultValue={project.progress || 0}
-                  />
-                </label>
+                <p className="small muted">
+                  El porcentaje se calcula automáticamente con el área instalada
+                  de los avances aprobados.
+                </p>
                 <label>
                   Observaciones de avance
                   <textarea
@@ -343,6 +352,12 @@ export function ProjectDashboard({
                 {r.notes || "Avance con archivos adjuntos"}
               </p>
               <ProgressAttachments attachments={r.attachments} />
+              <p>
+                Área instalada:{" "}
+                {r.installed_area == null
+                  ? "Sin medir"
+                  : `${num(r.installed_area)} ft²`}
+              </p>
               <ReviewStatus report={r} />
               <p>
                 <b>{num(Number(r.hours))} h</b> reportadas ·{" "}

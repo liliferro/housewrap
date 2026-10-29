@@ -16,6 +16,8 @@ test("operational overview shows per-work consumption, alerts and opens the work
       project_id: data.projects[0].id,
       notes: "Muro norte terminado; falta fachada.",
       hours: 6.5,
+      installed_area: 450,
+      review_status: "approved",
       rolls: 4,
       created_at: new Date().toISOString(),
     },

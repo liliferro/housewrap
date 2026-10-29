@@ -85,6 +85,12 @@ function ReviewCard({
         <p className="small muted">
           Fecha trabajada: {report.work_date || "Sin fecha registrada"}
         </p>
+        <p>
+          Área instalada:{" "}
+          {report.installed_area == null
+            ? "Sin medir (no suma al porcentaje)"
+            : `${num(report.installed_area)} ft²`}
+        </p>
         <ReviewStatus report={report} />
         <p className="report-notes">
           {report.notes || "Avance con fotos o audio adjuntos."}

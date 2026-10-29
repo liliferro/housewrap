@@ -10,6 +10,9 @@ export type Project = Partial<ProjectDetails> & {
   builder_id?: string | null;
   contact_id?: string | null;
   progress?: number;
+  approved_area?: number;
+  target_area?: number | null;
+  unmeasured_reports?: number;
   progress_notes?: string;
   started_at?: string | null;
   finished_at?: string | null;
@@ -48,6 +51,7 @@ export type Report = {
   project_id: string;
   author_id?: string;
   submitted_by?: string;
+  installed_area?: number | null;
   author_name?: string | null;
   notes: string;
   hours: number;
@@ -135,6 +139,10 @@ export const reportSchema = z.object({
   notes: z.string().trim().max(2000),
   hours: z.coerce.number().min(0).max(24),
   rolls: z.coerce.number().min(0).max(100),
+  installed_area: z.preprocess(
+    (v) => (v === "" || v == null ? null : v),
+    z.coerce.number().min(0).max(1000000).nullable(),
+  ),
 });
 export const money = (n: number) =>
   new Intl.NumberFormat("en-US", {

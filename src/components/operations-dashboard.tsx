@@ -1,4 +1,5 @@
 "use client";
+import { areaProgress } from "@/lib/area-progress";
 import { useState } from "react";
 import { type Data, money, num } from "@/lib/model";
 import { operationMetrics } from "@/lib/operations";
@@ -173,18 +174,31 @@ export function OperationsDashboard({
                           : "Programada"}
                     </span>
                     <strong>
-                      {p.progress == null
+                      {areaProgress(p, data).percent == null
                         ? "Avance sin registrar"
-                        : `${p.progress}% de avance`}
+                        : `${areaProgress(p, data).percent}% de avance`}
                     </strong>
                   </div>
-                  {p.progress != null && (
+                  {areaProgress(p, data).percent != null && (
                     <progress
-                      value={p.progress}
+                      value={areaProgress(p, data).percent || 0}
                       max={100}
                       aria-label={`Avance de ${p.name}`}
                     />
                   )}
+                  <p className="small muted">
+                    {num(areaProgress(p, data).area)} ft² aprobados /{" "}
+                    {areaProgress(p, data).target
+                      ? `${num(areaProgress(p, data).target!)} ft² previstos`
+                      : "sin área de referencia"}
+                    .{" "}
+                    {areaProgress(p, data).missing > 0
+                      ? `${areaProgress(p, data).missing} avances aprobados sin área registrada.`
+                      : ""}{" "}
+                    {areaProgress(p, data).over
+                      ? "El área supera el estimado: revisa posibles duplicados o cambios de alcance."
+                      : ""}
+                  </p>
                   <dl className="operation-metrics">
                     <div>
                       <dt>Rollos consumidos</dt>

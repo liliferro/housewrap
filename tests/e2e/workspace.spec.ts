@@ -68,7 +68,6 @@ test("create a project, calculate an estimate, report and retain the data", asyn
   await dashboard
     .getByText("Actualizar avance y fechas", { exact: true })
     .click();
-  await dashboard.getByLabel("Avance (%)", { exact: true }).fill("40");
   await dashboard
     .getByLabel("Fecha y hora de inicio", { exact: true })
     .fill("2026-10-28T08:00");
@@ -77,12 +76,12 @@ test("create a project, calculate an estimate, report and retain the data", asyn
     .click();
   await expect(dashboard.getByRole("progressbar")).toHaveAttribute(
     "value",
-    "40",
+    "0",
   );
   await page.reload();
   await expect(
     page.getByRole("dialog").getByRole("progressbar"),
-  ).toHaveAttribute("value", "40");
+  ).toHaveAttribute("value", "0");
   await page.getByRole("button", { name: "Cerrar", exact: true }).click();
   expect(
     await page.evaluate(

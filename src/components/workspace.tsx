@@ -198,6 +198,7 @@ export function Workspace({
     notes: "",
     hours: "",
     rolls: "",
+    installed_area: "",
   });
   const canManage = demo || ["owner", "office"].includes(role);
   const canApprove = demo || role === "owner";
@@ -299,7 +300,7 @@ export function Workspace({
         const draft = localStorage.getItem(draftKey);
         if (draft && alive) {
           const saved = JSON.parse(draft);
-          setReport({ author_name: "", ...saved });
+          setReport({ author_name: "", installed_area: "", ...saved });
           setWorkDate(saved.work_date || localDate());
           setDemoWorker(saved.worker_id || "");
           reportEventId.current = saved.client_id || null;
@@ -661,6 +662,7 @@ export function Workspace({
       notes: "",
       hours: "",
       rolls: "",
+      installed_area: "",
     });
     setNotice(
       "Avance recibido. Las horas y el material quedan pendientes de revisión.",
@@ -1279,6 +1281,29 @@ export function Workspace({
                           />
                         </label>
                       </div>
+                      <label>
+                        Área nueva instalada (ft²)
+                        <input
+                          type="number"
+                          min="0"
+                          max="1000000"
+                          step="0.01"
+                          value={report.installed_area}
+                          onChange={(e) =>
+                            setReport({
+                              ...report,
+                              installed_area: e.target.value,
+                            })
+                          }
+                        />
+                        <small>
+                          Solo el área adicional de este avance, no el
+                          acumulado. No repitas la misma superficie entre
+                          trabajadores. Usa 0 si no instalaste área; déjalo
+                          vacío si aún no se midió. Se sumará al aprobarlo.
+                        </small>
+                      </label>
+
                       <p className="muted small">
                         Revisa los datos antes de enviarlos. Estas horas no se
                         suman automáticamente a nómina.
@@ -1396,6 +1421,7 @@ export function Workspace({
                               notes: "",
                               hours: "",
                               rolls: "",
+                              installed_area: "",
                             });
                             setNotice("Demostración restablecida.");
                           }
