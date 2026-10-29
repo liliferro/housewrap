@@ -47,6 +47,7 @@ export type Report = {
   id: string;
   project_id: string;
   author_id?: string;
+  submitted_by?: string;
   author_name?: string | null;
   notes: string;
   hours: number;

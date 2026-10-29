@@ -98,7 +98,7 @@ export async function sendProgress(
   }
   try {
     for (const { id, file } of files) {
-      const path = `${demo ? "demo" : row.author_id}/${row.project_id}/${row.id}/${id}-${crypto.randomUUID()}`;
+      const path = `${demo ? "demo" : row.submitted_by || row.author_id}/${row.project_id}/${row.id}/${id}-${crypto.randomUUID()}`;
       if (demo) await mediaStore("put", path, file);
       else {
         const uploaded = await db!.storage

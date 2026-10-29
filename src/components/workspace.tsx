@@ -591,7 +591,7 @@ export function Workspace({
   }
   async function submitReport() {
     const ownWorker = (data.workers || []).find(
-      (w) => w.user_id === (demo ? demoWorker : userId),
+      (w) => w.user_id === (demo || canManage ? demoWorker : userId),
     );
     const values = reportSchema.parse({
       ...report,
@@ -602,9 +602,13 @@ export function Workspace({
     });
     if (!workDate || workDate > localDate())
       throw new Error("Elige una fecha trabajada válida, hasta hoy.");
-    const authorId = demo ? demoWorker || undefined : userId;
+    const authorId = demo || canManage ? demoWorker || undefined : userId;
+    if (!demo && !ownWorker)
+      throw new Error(
+        "Selecciona un trabajador registrado y asignado a la obra.",
+      );
     if (
-      demo &&
+      (demo || canManage) &&
       demoWorker &&
       !(data.assignments || []).some(
         (a) => a.user_id === demoWorker && a.project_id === report.project_id,
@@ -637,6 +641,7 @@ export function Workspace({
         id,
         created_at: new Date().toISOString(),
         author_id: authorId,
+        ...(!demo ? { submitted_by: userId } : {}),
         work_date: workDate,
       },
       pendingMedia,
@@ -1116,9 +1121,13 @@ export function Workspace({
                         <select
                           required
                           value={report.project_id}
-                          onChange={(e) =>
-                            setReport({ ...report, project_id: e.target.value })
-                          }
+                          onChange={(e) => {
+                            setReport({
+                              ...report,
+                              project_id: e.target.value,
+                            });
+                            if (!demo && canManage) setDemoWorker("");
+                          }}
                         >
                           <option value="">Selecciona una obra</option>
                           {data.projects.map((p) => (
@@ -1156,32 +1165,70 @@ export function Workspace({
                           onChange={(e) => setWorkDate(e.target.value)}
                         />
                       </label>
-                      <label>
-                        Nombre del trabajador
-                        <input
-                          required
-                          minLength={2}
-                          maxLength={100}
-                          readOnly={!demo || !!demoWorker}
-                          value={
-                            !demo
-                              ? (data.workers || []).find(
-                                  (w) => w.user_id === userId,
-                                )?.full_name || "Oficina"
-                              : demoWorker
-                                ? (data.workers || []).find(
-                                    (w) => w.user_id === demoWorker,
-                                  )?.full_name || ""
-                                : report.author_name
-                          }
-                          onChange={(e) =>
-                            setReport({
-                              ...report,
-                              author_name: e.target.value,
-                            })
-                          }
-                        />
-                      </label>
+                      {!demo && canManage ? (
+                        <label>
+                          Nombre del trabajador
+                          <select
+                            required
+                            value={demoWorker}
+                            onChange={(e) => setDemoWorker(e.target.value)}
+                          >
+                            <option value="">
+                              {report.project_id
+                                ? "Selecciona un trabajador asignado"
+                                : "Primero selecciona una obra"}
+                            </option>
+                            {(data.workers || [])
+                              .filter((w) =>
+                                (data.assignments || []).some(
+                                  (a) =>
+                                    a.user_id === w.user_id &&
+                                    a.project_id === report.project_id,
+                                ),
+                              )
+                              .map((w) => (
+                                <option key={w.user_id} value={w.user_id}>
+                                  {w.full_name}
+                                </option>
+                              ))}
+                          </select>
+                          <small>
+                            Solo trabajadores asignados a esta obra. Puedes
+                            gestionarlos desde Trabajadores y la ficha de la
+                            obra.
+                          </small>
+                        </label>
+                      ) : (
+                        <>
+                          {" "}
+                          <label>
+                            Nombre del trabajador
+                            <input
+                              required
+                              minLength={2}
+                              maxLength={100}
+                              readOnly={!demo || !!demoWorker}
+                              value={
+                                !demo
+                                  ? (data.workers || []).find(
+                                      (w) => w.user_id === userId,
+                                    )?.full_name || "Oficina"
+                                  : demoWorker
+                                    ? (data.workers || []).find(
+                                        (w) => w.user_id === demoWorker,
+                                      )?.full_name || ""
+                                    : report.author_name
+                              }
+                              onChange={(e) =>
+                                setReport({
+                                  ...report,
+                                  author_name: e.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                        </>
+                      )}
                       <label>
                         ¿Qué hiciste y qué quedó pendiente?
                         <textarea
