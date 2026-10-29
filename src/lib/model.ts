@@ -25,6 +25,7 @@ export type Project = Partial<ProjectDetails> & {
   created_at: string;
 };
 export type Estimate = {
+  measurements?: import("./measurements").Measurements | null;
   id: string;
   project_id: string;
   area: number;

@@ -2086,3 +2086,37 @@ summary {
   flex-wrap: wrap;
   gap: 16px;
 }
+
+.measurements-assistant {
+  margin: 18px 0;
+  padding: 18px;
+  background: #f4f7f5;
+  border: 1px solid #d5ded9;
+  border-radius: 8px;
+}
+.measurement-row {
+  border: 1px solid #d5ded9;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+.measurement-confirm {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+.measurement-confirm input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.measurement-saved {
+  margin-top: 12px;
+  white-space: normal;
+  max-width: 420px;
+}
+.measurement-saved summary {
+  cursor: pointer;
+  color: #27833b;
+}

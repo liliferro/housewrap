@@ -2,6 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 import { readAll } from "@/lib/read-all";
 import Link from "next/link";
+import { MeasurementsCalculator, MeasurementDetails } from "./measurements";
+import {
+  measureWalls,
+  measurementText,
+  type Measurements,
+} from "@/lib/measurements";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
@@ -175,6 +181,7 @@ export function Workspace({
     );
   }
   const [busy, setBusy] = useState(false);
+  const [measurements, setMeasurements] = useState<Measurements | null>(null);
   const [calc, setCalc] = useState({
     area: 2400,
     rate: 1.25,
@@ -434,19 +441,30 @@ export function Workspace({
     if (demo)
       row = {
         ...values,
+        measurements,
         project_id,
         id: crypto.randomUUID(),
         status: "draft",
         created_at: new Date().toISOString(),
       };
     else {
-      const { data, error } = await browserDb().rpc("create_estimate", {
-        p_project_id: project_id,
-        p_area: values.area,
-        p_rate: values.rate,
-        p_waste: values.waste,
-        p_roll_size: values.roll_size,
-      });
+      const { data, error } = await browserDb().rpc(
+        measurements ? "create_estimate_from_measurements" : "create_estimate",
+        measurements
+          ? {
+              p_project_id: project_id,
+              p_measurements: measurements,
+              p_rate: values.rate,
+              p_waste: values.waste,
+            }
+          : {
+              p_project_id: project_id,
+              p_area: values.area,
+              p_rate: values.rate,
+              p_waste: values.waste,
+              p_roll_size: values.roll_size,
+            },
+      );
       if (error)
         throw new Error(
           "No se pudo guardar el estimado. Revisa los valores y tu acceso.",
@@ -469,6 +487,7 @@ export function Workspace({
     });
     setModal(null);
     setTab("estimates");
+    setMeasurements(null);
     setNotice("Estimado guardado como borrador.");
   }
   async function moveOpportunity(id: string, stage: PipelineStage) {
@@ -644,7 +663,7 @@ export function Workspace({
   }
   function exportEstimate(e: Estimate) {
     const p = namedProjects.find((x) => x.id === e.project_id);
-    const text = `Quality Housewrap\nHOUSEWRAP ESTIMATE - ${e.status === "approved" ? "INTERNALLY APPROVED" : "DRAFT"}\n${demo ? "DEMONSTRATION - NOT A COMMERCIAL QUOTE\n" : ""}Project: ${p?.name}\nBuilder: ${p?.builder}\nAddress: ${p?.address}\nGross billable area: ${num(e.area)} ft2\nRate: ${money(e.rate)} / ft2\nTotal: ${money(e.total)}\n\nScope: housewrap installation only. No opening deductions.\nMaterial quantities are preliminary. Product, overlap rules, terms and validity must be confirmed before sending.\nThis file does not record builder acceptance.`;
+    const text = `Quality Housewrap\nHOUSEWRAP ESTIMATE - ${e.status === "approved" ? "INTERNALLY APPROVED" : "DRAFT"}\n${demo ? "DEMONSTRATION - NOT A COMMERCIAL QUOTE\n" : ""}Project: ${p?.name}\nBuilder: ${p?.builder}\nAddress: ${p?.address}\nGross billable area: ${num(e.area)} ft2\nRate: ${money(e.rate)} / ft2\nTotal: ${money(e.total)}\n\nScope: housewrap installation only. No opening deductions.\nMaterial quantities are preliminary. Product, overlap rules, terms and validity must be confirmed before sending.\nThis file does not record builder acceptance.\nMaterial reserve: ${e.waste}% · Preliminary rolls: ${e.rolls}\n${e.measurements ? measurementText(e.measurements) : "Manual area entry"}`;
     const url = URL.createObjectURL(
       new Blob([text], { type: "text/plain;charset=utf-8" }),
     );
@@ -964,9 +983,9 @@ export function Workspace({
               {tab === "estimates" && (
                 <>
                   <div className="notice">
-                    <Layers size={19} /> Cálculo manual de área bruta. La
-                    medición automática de planos y las recetas por fabricante
-                    aún no están habilitadas.
+                    <Layers size={19} /> Medición asistida por fachadas
+                    disponible al crear un estimado. La lectura automática de
+                    PDF y el despiece por fabricante aún no están habilitados.
                   </div>
                   <div
                     className="operations-filters"
@@ -1034,6 +1053,9 @@ export function Workspace({
                                       }
                                     />
                                     <small>Estimado #{e.id.slice(0, 8)}</small>
+                                    <MeasurementDetails
+                                      value={e.measurements}
+                                    />
                                   </td>
                                   <td>{num(e.area)} ft²</td>
                                   <td>{e.rolls} rollos</td>
@@ -1393,6 +1415,7 @@ export function Workspace({
         <Modal
           title="Preparar estimado"
           close={() => {
+            setMeasurements(null);
             setModal(null);
             setCreatingEstimateProject(false);
           }}
@@ -1454,7 +1477,10 @@ export function Workspace({
                     ? estimateProject
                     : data.projects[0]?.id || ""
                 }
-                onChange={(e) => setEstimateProject(e.target.value)}
+                onChange={(e) => {
+                  setEstimateProject(e.target.value);
+                  setMeasurements(null);
+                }}
               >
                 {!data.projects.length && (
                   <option value="">Crea tu primera obra para continuar</option>
@@ -1477,6 +1503,20 @@ export function Workspace({
             >
               + Crear nueva obra
             </button>
+            <MeasurementsCalculator
+              key={estimateProject}
+              value={measurements}
+              reserve={calc.waste}
+              onApply={(m) => {
+                const result = measureWalls(m);
+                setMeasurements(m);
+                setCalc({
+                  ...calc,
+                  area: result.area,
+                  roll_size: result.rollSize,
+                });
+              }}
+            />
             <div className="form-grid">
               {(
                 [
@@ -1496,7 +1536,7 @@ export function Workspace({
                   },
                   {
                     id: "waste",
-                    label: "Desperdicio (%)",
+                    label: "Reserva de material (%)",
                     min: 0,
                     max: 50,
                     step: 0.1,
@@ -1519,9 +1559,11 @@ export function Workspace({
                     max={f.max}
                     step={f.step}
                     value={calc[f.id]}
-                    onChange={(e) =>
-                      setCalc({ ...calc, [f.id]: Number(e.target.value) })
-                    }
+                    onChange={(e) => {
+                      setCalc({ ...calc, [f.id]: Number(e.target.value) });
+                      if (f.id === "area" || f.id === "roll_size")
+                        setMeasurements(null);
+                    }}
                   />
                 </label>
               ))}
@@ -1541,9 +1583,9 @@ export function Workspace({
               </span>
             </div>
             <p className="small muted">
-              No se descuentan aberturas. La previsión de rollos incluye
-              desperdicio; aún no calcula traslapes ni flashing. Verifica el
-              producto antes de uso comercial.
+              No se descuentan aberturas. La reserva global es una hipótesis
+              para cortes y solapes; no calcula su distribución individual ni
+              flashing. Verifica el producto antes de comprar material.
             </p>
             {error && (
               <p className="error" role="alert">

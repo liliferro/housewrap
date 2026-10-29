@@ -5,6 +5,7 @@ import {
   pipelineSummary,
   type PipelineStage,
 } from "@/lib/pipeline";
+import { MeasurementDetails } from "./measurements";
 import { EstimateProjectInfo } from "./estimate-project-info";
 export function SalesPipeline({
   data,
@@ -114,6 +115,7 @@ export function SalesPipeline({
                         : "Último estimado"}
                     </p>
                   )}
+                  <MeasurementDetails value={o.estimate?.measurements} />
                   <label>
                     Etapa comercial
                     <select
