@@ -5,7 +5,8 @@ Initial working foundation for the Quality Housewrap MVP. Next.js App Router, Re
 ## Available now
 
 - Branded responsive operations workspace, in Spanish.
-- Projects: create, browse, search and update status.
+- Projects: create, browse, search, update status and assign a reusable builder/contact.
+- Builders and contacts directory: multiple people and works per builder, editable contact details, independently optional email and phone. Contacts cannot be assigned to a different builder by mistake.
 - Manual gross-area estimates: material allowance, decimal price, internal owner approval and text summary export. Database-generated totals cannot be overridden by the browser.
 - Text field reports: explicit confirmation, hours/material capture and local draft recovery.
 - Isolated demonstration at `/demo`, using browser-only example data. Real data at `/app` requires authentication and database membership.
@@ -22,7 +23,7 @@ Commands: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm
 
 ## Database setup
 
-Apply the checked-in foundation migration to the dedicated Supabase project. `supabase/schema.sql` contains the identical source. All exposed tables enable RLS. Memberships are provisioned by an administrator; there is no public role assignment or self-enrollment. Authorizations never use editable user metadata.
+Apply checked-in migrations in chronological order to the dedicated Supabase project. `supabase/schema.sql` contains the cumulative schema for a fresh database. All exposed tables enable RLS. Memberships are provisioned by an administrator; there is no public role assignment or self-enrollment. Authorizations never use editable user metadata.
 
 Create an Auth user through Supabase's administrative interface, then insert its user ID into `public.memberships` with role `owner`. Provision office/worker/crew_lead similarly and assign workers using `public.assignments`. Account recovery is currently handled by the administrator. Do not make arbitrary signups owners.
 
@@ -44,3 +45,5 @@ Connect GitHub `liliferro/housewrap` to the Vercel project `housewrap`, framewor
 4. Outbox/jobs, messaging approval, dashboards based on reconciled data and simulated accounting.
 
 The reviewed 0.3 specification remains the product plan; no automated measurement accuracy or delivery completion is claimed by this foundation.
+
+Existing works retain their original builder text for backward compatibility; the UI reads the linked builder name. Existing works without a known contact show a pending assignment; new works require a named contact. Demo data is upgraded in place without deleting saved works.

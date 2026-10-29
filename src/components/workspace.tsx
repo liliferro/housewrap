@@ -23,6 +23,13 @@ import {
   Clock,
   AlertCircle,
 } from "lucide-react";
+import {
+  Directory,
+  RelationFields,
+  ContactInfo,
+  resolveContact,
+} from "./contacts";
+import { withDirectory } from "@/lib/model";
 import { Brand } from "./brand";
 import { browserDb } from "@/lib/supabase";
 import {
@@ -37,15 +44,23 @@ import {
   type Estimate,
 } from "@/lib/model";
 
-type Tab = "overview" | "projects" | "estimates" | "field" | "settings";
+type Tab =
+  "contacts" | "overview" | "projects" | "estimates" | "field" | "settings";
 const tabs = [
+  { id: "contacts" as const, label: "Builders y contactos", icon: Building2 },
   { id: "overview" as const, label: "Vista general", icon: LayoutDashboard },
   { id: "projects" as const, label: "Obras", icon: Building2 },
   { id: "estimates" as const, label: "Estimados", icon: FileText },
   { id: "field" as const, label: "Reportes de campo", icon: HardHat },
   { id: "settings" as const, label: "Configuración", icon: Settings },
 ];
-const empty: Data = { projects: [], estimates: [], reports: [] };
+const empty: Data = {
+  projects: [],
+  estimates: [],
+  reports: [],
+  builders: [],
+  contacts: [],
+};
 const demoKey = "qh-demo-v1";
 function Modal({
   title,
@@ -134,12 +149,12 @@ export function Workspace({
         if (demo) {
           const saved = localStorage.getItem(demoKey);
           if (alive) {
-            setData(saved ? JSON.parse(saved) : demoData());
+            setData(withDirectory(saved ? JSON.parse(saved) : demoData()));
             setRole("owner");
           }
         } else {
           const db = browserDb();
-          const [p, e, r, m] = await Promise.all([
+          const [p, e, r, m, b, c] = await Promise.all([
             db
               .from("projects")
               .select("*")
@@ -157,8 +172,11 @@ export function Workspace({
               .select("role")
               .eq("user_id", userId!)
               .maybeSingle(),
+            db.from("builders").select("*").order("name"),
+            db.from("contacts").select("*").order("name"),
           ]);
-          const err = p.error || e.error || r.error || m.error;
+          const err =
+            p.error || e.error || r.error || m.error || b.error || c.error;
           if (err)
             throw new Error(
               "No se pudieron cargar los datos. Verifica la conexión y vuelve a intentar.",
@@ -169,6 +187,8 @@ export function Workspace({
             );
           if (alive) {
             setData({
+              builders: b.data || [],
+              contacts: c.data || [],
               projects: p.data || [],
               estimates: e.data || [],
               reports: r.data || [],
@@ -223,7 +243,12 @@ export function Workspace({
     setSearch("");
     setNotice("");
   }
-  const projects = data.projects.filter((p) =>
+  const namedProjects = data.projects.map((p) => ({
+    ...p,
+    builder:
+      data.builders.find((b) => b.id === p.builder_id)?.name || p.builder,
+  }));
+  const projects = namedProjects.filter((p) =>
     `${p.name} ${p.builder} ${p.address}`
       .toLowerCase()
       .includes(search.toLowerCase()),
@@ -237,9 +262,22 @@ export function Workspace({
     /* Show validation in form. */
   }
   async function addProject(form: FormData) {
-    const values = projectSchema.parse(Object.fromEntries(form));
+    const raw = Object.fromEntries(form);
+    const builderName =
+      data.builders.find((b) => b.id === raw.builder_id)?.name ||
+      String(raw.builder || "");
+    const values = projectSchema.parse({ ...raw, builder: builderName });
+    const { next, builder, contact } = await resolveContact(
+      form,
+      data,
+      demo,
+      persist,
+    );
     const p = {
       ...values,
+      builder: builder.name,
+      builder_id: builder.id,
+      contact_id: contact.id,
       target_date: values.target_date || null,
       status: "scheduled" as const,
     };
@@ -262,7 +300,7 @@ export function Workspace({
         );
       created = data;
     }
-    persist({ ...data, projects: [created, ...data.projects] });
+    persist({ ...next, projects: [created, ...next.projects] });
     setModal(null);
     setNotice("Obra creada. Ya puedes preparar su estimado.");
     setTab("projects");
@@ -372,7 +410,7 @@ export function Workspace({
     );
   }
   function exportEstimate(e: Estimate) {
-    const p = data.projects.find((x) => x.id === e.project_id);
+    const p = namedProjects.find((x) => x.id === e.project_id);
     const text = `Quality Housewrap\nHOUSEWRAP ESTIMATE - ${e.status === "approved" ? "INTERNALLY APPROVED" : "DRAFT"}\n${demo ? "DEMONSTRATION - NOT A COMMERCIAL QUOTE\n" : ""}Project: ${p?.name}\nBuilder: ${p?.builder}\nAddress: ${p?.address}\nGross billable area: ${num(e.area)} ft2\nRate: ${money(e.rate)} / ft2\nTotal: ${money(e.total)}\n\nScope: housewrap installation only. No opening deductions.\nMaterial quantities are preliminary. Product, overlap rules, terms and validity must be confirmed before sending.\nThis file does not record builder acceptance.`;
     const url = URL.createObjectURL(
       new Blob([text], { type: "text/plain;charset=utf-8" }),
@@ -391,20 +429,22 @@ export function Workspace({
         </Link>
         <div className="workspace-label">ESPACIO DE TRABAJO</div>
         <nav aria-label="Navegación principal">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              className={tab === id ? "active" : ""}
-              onClick={() => navigate(id)}
-              aria-current={tab === id ? "page" : undefined}
-            >
-              <Icon size={19} />
-              {label}
-              {id === "estimates" && pending.length > 0 && (
-                <b>{pending.length}</b>
-              )}
-            </button>
-          ))}
+          {tabs
+            .filter((t) => t.id !== "contacts" || canManage)
+            .map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                className={tab === id ? "active" : ""}
+                onClick={() => navigate(id)}
+                aria-current={tab === id ? "page" : undefined}
+              >
+                <Icon size={19} />
+                {label}
+                {id === "estimates" && pending.length > 0 && (
+                  <b>{pending.length}</b>
+                )}
+              </button>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="small-label">HECHO PARA EL OFICIO</div>
@@ -431,9 +471,12 @@ export function Workspace({
                 onClick={() =>
                   run(async () => {
                     const result = await browserDb().auth.signOut();
-                      if (result.error) throw new Error("No se pudo cerrar la sesión. Vuelve a intentar.");
+                    if (result.error)
+                      throw new Error(
+                        "No se pudo cerrar la sesión. Vuelve a intentar.",
+                      );
                     router.replace("/login");
-                      router.refresh();
+                    router.refresh();
                   })
                 }
               >
@@ -493,6 +536,7 @@ export function Workspace({
                   <h1>
                     {
                       {
+                        contacts: "Tus builders, siempre a mano.",
                         overview: "Una buena vista de tu trabajo.",
                         projects: "Cada obra, en su lugar.",
                         estimates: "De las medidas al estimado.",
@@ -504,6 +548,8 @@ export function Workspace({
                   <p>
                     {
                       {
+                        contacts:
+                          "Un directorio compartido para todas tus obras.",
                         overview:
                           "Obras, estimados y equipo. Todo lo importante, aquí.",
                         projects:
@@ -536,6 +582,15 @@ export function Workspace({
                   </button>
                 )}
               </div>
+              {tab === "contacts" && canManage && (
+                <Directory
+                  data={data}
+                  demo={demo}
+                  persist={persist}
+                  run={run}
+                  busy={busy}
+                />
+              )}
               {tab === "overview" && (
                 <>
                   <div className="stats">
@@ -596,7 +651,7 @@ export function Workspace({
                         </button>
                       </div>
                       <ProjectList
-                        projects={data.projects.slice(0, 4)}
+                        projects={namedProjects.slice(0, 4)}
                         open={setSelected}
                       />
                     </section>
@@ -928,7 +983,7 @@ export function Workspace({
                               "¿Restablecer solo los datos de esta demostración?",
                             )
                           ) {
-                            persist(demoData());
+                            persist(withDirectory(demoData()));
                             localStorage.removeItem(draftKey);
                             setReport({
                               project_id: "",
@@ -996,10 +1051,7 @@ export function Workspace({
                 autoFocus
               />
             </label>
-            <label>
-              Builder
-              <input name="builder" required minLength={2} maxLength={100} />
-            </label>
+            <RelationFields data={data} />
             <label>
               Dirección de la obra
               <input name="address" required minLength={3} maxLength={200} />
@@ -1126,8 +1178,66 @@ export function Workspace({
             <p>
               <strong>Builder</strong>
               <br />
-              {selected.builder}
+              {data.builders.find((b) => b.id === selected.builder_id)?.name ||
+                selected.builder}
             </p>
+            <h3>Persona de contacto</h3>
+            <ContactInfo
+              contact={data.contacts.find((c) => c.id === selected.contact_id)}
+            />
+            {canManage && (
+              <details>
+                <summary>Cambiar builder o contacto de esta obra</summary>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const f = new FormData(e.currentTarget);
+                    void run(async () => {
+                      const { next, builder, contact } = await resolveContact(
+                        f,
+                        data,
+                        demo,
+                        persist,
+                      );
+                      const patch = {
+                        builder_id: builder.id,
+                        contact_id: contact.id,
+                        builder: builder.name,
+                      };
+                      if (!demo) {
+                        const result = await browserDb()
+                          .from("projects")
+                          .update(patch)
+                          .eq("id", selected.id)
+                          .select()
+                          .single();
+                        if (result.error)
+                          throw new Error(
+                            "No se pudo cambiar el contacto de la obra.",
+                          );
+                      }
+                      const updated = { ...selected, ...patch };
+                      persist({
+                        ...next,
+                        projects: next.projects.map((p) =>
+                          p.id === selected.id ? updated : p,
+                        ),
+                      });
+                      setSelected(updated);
+                    });
+                  }}
+                >
+                  <RelationFields
+                    data={data}
+                    initialBuilder={selected.builder_id || ""}
+                    initialContact={selected.contact_id || ""}
+                  />
+                  <button className="button primary" disabled={busy}>
+                    Guardar contacto de la obra
+                  </button>
+                </form>
+              </details>
+            )}
             <p>
               <strong>Dirección</strong>
               <br />

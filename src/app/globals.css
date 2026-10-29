@@ -1443,3 +1443,30 @@ dialog::backdrop {
     font-size: 11px;
   }
 }
+
+.directory {
+  padding: 24px;
+}
+.builder-card {
+  border-top: 1px solid var(--line);
+  padding: 24px 0;
+}
+.contact-card {
+  padding: 16px 0;
+}
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.directory form,
+details form {
+  margin: 20px 0;
+  max-width: 540px;
+}
+summary {
+  cursor: pointer;
+  margin: 16px 0;
+}

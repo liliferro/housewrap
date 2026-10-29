@@ -3,6 +3,8 @@ export type Project = {
   id: string;
   name: string;
   builder: string;
+  builder_id?: string | null;
+  contact_id?: string | null;
   address: string;
   status: "scheduled" | "active" | "done";
   target_date: string | null;
@@ -30,10 +32,54 @@ export type Report = {
   created_at: string;
 };
 export type Data = {
+  builders: Builder[];
+  contacts: Contact[];
   projects: Project[];
   estimates: Estimate[];
   reports: Report[];
 };
+export type Builder = { id: string; name: string };
+export type Contact = {
+  id: string;
+  builder_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+};
+export const contactSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .max(254)
+    .or(z.literal(""))
+    .transform((v) => v || null),
+  phone: z
+    .string()
+    .trim()
+    .min(3)
+    .max(40)
+    .or(z.literal(""))
+    .transform((v) => v || null),
+});
+// Upgrade saved demonstrations without discarding the user's existing works.
+export function withDirectory(data: Data): Data {
+  const builders = [...(data.builders || [])];
+  const projects = data.projects.map((p) => {
+    let builder = builders.find(
+      (b) =>
+        b.id === p.builder_id ||
+        b.name.trim().toLowerCase() === p.builder.trim().toLowerCase(),
+    );
+    if (!builder) {
+      builder = { id: crypto.randomUUID(), name: p.builder };
+      builders.push(builder);
+    }
+    return { ...p, builder_id: builder.id };
+  });
+  return { ...data, projects, builders, contacts: data.contacts || [] };
+}
 export const estimateSchema = z.object({
   area: z.coerce.number().positive().max(1000000),
   rate: z.coerce.number().positive().max(10000),
@@ -74,6 +120,8 @@ export const num = (n: number) =>
 export function demoData(): Data {
   const now = new Date().toISOString();
   return {
+    builders: [],
+    contacts: [],
     projects: [
       {
         id: "11111111-1111-4111-8111-111111111111",
