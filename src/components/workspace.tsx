@@ -676,7 +676,7 @@ export function Workspace({
   return (
     <div className="workspace">
       <aside className="sidebar">
-        <Link href={demo ? "/demo" : "/app"}>
+        <Link href="/app">
           <Brand dark />
         </Link>
         <div className="workspace-label">ESPACIO DE TRABAJO</div>
@@ -762,8 +762,8 @@ export function Workspace({
                 <span className="demo-dot" /> Demostración · Datos de ejemplo
                 guardados solo en este navegador.
               </span>
-              <Link href="/login">
-                Acceder a mi equipo <ArrowUpRight size={14} />
+              <Link href="/app" className="button primary">
+                Salir del demo · Entrar a mi equipo <ArrowUpRight size={14} />
               </Link>
             </div>
           )}
