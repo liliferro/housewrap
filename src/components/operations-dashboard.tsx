@@ -174,28 +174,28 @@ export function OperationsDashboard({
                           : "Programada"}
                     </span>
                     <strong>
-                      {areaProgress(p, data).percent == null
-                        ? "Avance sin registrar"
-                        : `${areaProgress(p, data).percent}% de avance`}
+                      {areaProgress(p, data, canManage).percent == null
+                        ? "Sin área de referencia"
+                        : `${areaProgress(p, data, canManage).percent}% de avance`}
                     </strong>
                   </div>
-                  {areaProgress(p, data).percent != null && (
+                  {areaProgress(p, data, canManage).percent != null && (
                     <progress
-                      value={areaProgress(p, data).percent || 0}
+                      value={areaProgress(p, data, canManage).percent || 0}
                       max={100}
                       aria-label={`Avance de ${p.name}`}
                     />
                   )}
                   <p className="small muted">
-                    {num(areaProgress(p, data).area)} ft² aprobados /{" "}
-                    {areaProgress(p, data).target
-                      ? `${num(areaProgress(p, data).target!)} ft² previstos`
+                    {num(areaProgress(p, data, canManage).area)} ft² aprobados /{" "}
+                    {areaProgress(p, data, canManage).target
+                      ? `${num(areaProgress(p, data, canManage).target!)} ft² previstos`
                       : "sin área de referencia"}
                     .{" "}
-                    {areaProgress(p, data).missing > 0
-                      ? `${areaProgress(p, data).missing} avances aprobados sin área registrada.`
+                    {areaProgress(p, data, canManage).missing > 0
+                      ? `${areaProgress(p, data, canManage).missing} avances aprobados sin área registrada.`
                       : ""}{" "}
-                    {areaProgress(p, data).over
+                    {areaProgress(p, data, canManage).over
                       ? "El área supera el estimado: revisa posibles duplicados o cambios de alcance."
                       : ""}
                   </p>

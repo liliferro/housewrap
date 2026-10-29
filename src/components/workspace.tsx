@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import type { ReportCorrectionValues } from "./report-correction";
 import { readAll } from "@/lib/read-all";
 import Link from "next/link";
 import { MeasurementsCalculator, MeasurementDetails } from "./measurements";
@@ -544,6 +545,61 @@ export function Workspace({
         "Estimado aprobado internamente. El envío al builder sigue pendiente.",
       );
     });
+  }
+  async function correctReport(report: Report, values: ReportCorrectionValues) {
+    if (
+      report.review_status === "approved" ||
+      (!canManage && report.author_id !== userId)
+    )
+      throw new Error("Este avance no permite correcciones.");
+    const checked = reportSchema.parse({ ...report, ...values });
+    if (checked.notes.length < 5 && !report.attachments?.length)
+      throw new Error("Describe el avance con al menos 5 caracteres.");
+    if (
+      data.reports
+        .filter(
+          (r) =>
+            r.id !== report.id &&
+            r.author_id === report.author_id &&
+            r.work_date === report.work_date,
+        )
+        .reduce((n, r) => n + Number(r.hours), 0) +
+        checked.hours >
+      24
+    )
+      throw new Error("El total del trabajador supera 24 horas en ese día.");
+    setBusy(true);
+    try {
+      let updated: Report = {
+        ...report,
+        ...values,
+        review_status: "pending",
+        review_note: "",
+        reviewed_at: null,
+        reviewed_by: null,
+      };
+      if (!demo) {
+        const result = await browserDb()
+          .from("field_reports")
+          .update({ ...values, review_status: "pending" })
+          .eq("id", report.id)
+          .eq("review_status", report.review_status || "pending")
+          .select()
+          .single();
+        if (result.error)
+          throw new Error(
+            "No se pudo corregir. Revisa los valores, la asignación y si el avance ya fue aprobado.",
+          );
+        updated = result.data;
+      }
+      persist({
+        ...data,
+        reports: data.reports.map((r) => (r.id === report.id ? updated : r)),
+      });
+      setNotice("Avance corregido y enviado a revisión.");
+    } finally {
+      setBusy(false);
+    }
   }
   async function reviewReport(
     report: Report,
@@ -1325,8 +1381,9 @@ export function Workspace({
                       </label>
 
                       <p className="muted small">
-                        Revisa los datos antes de enviarlos. Estas horas no se
-                        suman automáticamente a nómina.
+                        Revisa los datos antes de enviarlos. Las horas aprobadas
+                        se incluyen en el cálculo semanal; no se realiza ningún
+                        pago automáticamente.
                       </p>
                       <div className="actions">
                         <button
@@ -1703,7 +1760,11 @@ export function Workspace({
             </p>
           )}
           <ProjectDashboard
-            project={selected}
+            userId={userId}
+            correct={correctReport}
+            project={
+              data.projects.find((p) => p.id === selected.id) || selected
+            }
             data={data}
             canManage={canManage}
             busy={busy}

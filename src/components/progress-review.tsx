@@ -189,9 +189,10 @@ export function ProgressReview({
         </select>
       </label>
       <p className="small muted">
-        La aprobación confirma la revisión operativa del avance. No genera pagos
-        ni suma horas automáticamente a nómina. Las observaciones quedan
-        visibles en la obra; no se envían mensajes.
+        La aprobación incluye las horas en el cálculo semanal y el área
+        instalada en el porcentaje de la obra. No realiza pagos. Si devuelves un
+        avance, puede corregirse desde la ficha de la obra; no se envían
+        mensajes.
       </p>
       <div className="review-list">
         {reports.map((r) => (

@@ -39,6 +39,8 @@ test("progress counts only approved new area, handles missing area and caps disp
   assert.equal(areaProgress(p, d).over, true);
   d.estimates = [];
   assert.equal(areaProgress(p, d).percent, null);
+  assert.equal(areaProgress(p, d, true).area, 2500);
+  assert.equal(areaProgress(p, d, true).missing, 1);
   assert.equal(
     areaProgress({ ...p, approved_area: 600, target_area: 2400 }, d).percent,
     25,

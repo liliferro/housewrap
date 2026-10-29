@@ -1,4 +1,9 @@
 "use client";
+import {
+  ReportCorrection,
+  type ReportCorrectionValues,
+} from "./report-correction";
+import type { Report } from "@/lib/model";
 import { areaProgress } from "@/lib/area-progress";
 import { projectQuote } from "@/lib/quote";
 import { ProjectDetailsPanel } from "./project-detail-fields";
@@ -51,6 +56,8 @@ export function ProjectDashboard({
   save,
   exportEstimate,
   children,
+  userId,
+  correct,
 }: {
   project: Project;
   data: Data;
@@ -59,10 +66,12 @@ export function ProjectDashboard({
   save: (p: Partial<Project>) => Promise<void>;
   exportEstimate: (e: Estimate) => void;
   children: React.ReactNode;
+  userId?: string;
+  correct?: (r: Report, v: ReportCorrectionValues) => Promise<void>;
 }) {
   const [error, setError] = useState("");
   const m = projectMetrics(project, data);
-  const progress = areaProgress(project, data);
+  const progress = areaProgress(project, data, canManage);
   return (
     <div className="project-dashboard">
       <p className="eyebrow">DASHBOARD DE OBRA</p>
@@ -364,8 +373,15 @@ export function ProjectDashboard({
                 <b>{num(Number(r.rolls))} rollos</b> utilizados
               </p>
               <small className="muted">
-                Pendiente de revisión · nombre declarado en el avance
+                {r.review_status === "approved"
+                  ? "Revisado: horas incluidas en el cálculo semanal."
+                  : "Las horas requieren aprobación para el cálculo semanal."}
               </small>
+              {correct &&
+                r.review_status !== "approved" &&
+                (canManage || r.author_id === userId) && (
+                  <ReportCorrection report={r} busy={busy} save={correct} />
+                )}
             </article>
           ))
         )}
