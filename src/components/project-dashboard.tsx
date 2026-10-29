@@ -1,4 +1,5 @@
 "use client";
+import { ProjectDetailsPanel } from "./project-detail-fields";
 import { useState } from "react";
 import {
   type Data,
@@ -109,6 +110,12 @@ export function ProjectDashboard({
           </small>
         </article>
       </div>
+      <ProjectDetailsPanel
+        project={project}
+        canManage={canManage}
+        busy={busy}
+        save={save}
+      />
       <div className="project-dashboard-grid">
         <section className="panel dashboard-panel">
           <h3>Calendario y avances</h3>

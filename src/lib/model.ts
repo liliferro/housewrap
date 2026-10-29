@@ -1,5 +1,6 @@
 import { z } from "zod";
-export type Project = {
+import type { ProjectDetails } from "./project-details";
+export type Project = Partial<ProjectDetails> & {
   id: string;
   name: string;
   builder: string;

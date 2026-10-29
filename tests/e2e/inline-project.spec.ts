@@ -45,6 +45,27 @@ test("create a work inside an estimate without losing values, including an empty
     .fill("laura@example.com");
   await fillAddress(page);
   await page
+    .getByLabel("Tipo de proyecto", { exact: true })
+    .selectOption("multi_family");
+  await page
+    .getByLabel("Tipo de trabajo", { exact: true })
+    .selectOption("new_construction");
+  await page.getByLabel("Prioridad", { exact: true }).selectOption("high");
+  await page
+    .getByLabel("Lote o unidad (opcional)", { exact: true })
+    .fill("Lot 24 · Unidad B");
+  await page
+    .getByLabel("Inicio previsto (opcional)", { exact: true })
+    .fill("2026-11-01");
+  await page.getByLabel("Fecha objetivo", { exact: false }).fill("2026-11-10");
+  await page
+    .getByLabel("Notas de la obra (opcional)", { exact: true })
+    .fill("Revisar flashing en ventanas del segundo piso.");
+  await page
+    .getByLabel("Acceso e indicaciones (opcional)", { exact: true })
+    .fill("Entrada por calle lateral, desde las 8 am.");
+
+  await page
     .getByRole("button", { name: "Crear obra y continuar", exact: true })
     .click();
   await expect(
@@ -73,4 +94,33 @@ test("create a work inside an estimate without losing values, including an empty
   expect(data.estimates).toHaveLength(1);
   expect(data.estimates[0].project_id).toBe(data.projects[0].id);
   expect(data.estimates[0].total).toBe(6000);
+  expect(data.projects[0].project_type).toBe("multi_family");
+  expect(data.projects[0].lot_unit).toBe("Lot 24 · Unidad B");
+  await page.getByRole("button", { name: /Obra desde estimado/ }).click();
+  const panel = page
+    .getByRole("dialog")
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", { name: "Ficha de la obra", exact: true }),
+    });
+  await expect(panel).toContainText("Residencial multifamiliar");
+  await expect(panel).toContainText("Entrada por calle lateral");
+  await panel
+    .getByRole("button", { name: "Editar ficha de la obra", exact: true })
+    .click();
+  await panel
+    .getByLabel("Notas de la obra (opcional)", { exact: true })
+    .fill("Notas actualizadas desde el dashboard.");
+  await panel
+    .getByRole("button", { name: "Guardar ficha", exact: true })
+    .click();
+  await expect(
+    panel.getByText("Notas actualizadas desde el dashboard.", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText("Notas actualizadas desde el dashboard.", { exact: true }),
+  ).toBeVisible();
 });

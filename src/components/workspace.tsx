@@ -30,6 +30,8 @@ import {
   resolveContact,
 } from "./contacts";
 import { withDirectory } from "@/lib/model";
+import { ProjectDetailFields } from "./project-detail-fields";
+import { parseProjectDetails } from "@/lib/project-details";
 import { AddressInput } from "./address-input";
 import { parseProjectAddress } from "@/lib/address";
 import { ProjectDashboard } from "./project-dashboard";
@@ -310,6 +312,7 @@ export function Workspace({
       String(raw.builder || "");
     const values = projectSchema.parse({ ...raw, builder: builderName });
     const location = parseProjectAddress(form);
+    const details = parseProjectDetails(form, values.target_date);
     const { next, builder, contact } = await resolveContact(
       form,
       data,
@@ -319,6 +322,7 @@ export function Workspace({
     const p = {
       ...values,
       ...location,
+      ...details,
       builder: builder.name,
       builder_id: builder.id,
       contact_id: contact.id,
@@ -1570,8 +1574,11 @@ function ProjectFields({ data }: { data: Data }) {
           autoFocus
         />
       </label>
+      <h3>Builder y ubicación</h3>
       <RelationFields data={data} />
       <AddressInput />
+      <h3>Detalles y planificación</h3>
+      <ProjectDetailFields />
       <label>
         Fecha objetivo <span className="muted">(opcional)</span>
         <input name="target_date" type="date" />

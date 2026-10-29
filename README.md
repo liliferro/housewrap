@@ -61,3 +61,7 @@ Work creation (including inside estimates) searches US numbered street addresses
 The public Photon service permits moderate project use but has no availability SLA: https://github.com/komoot/photon#demo-server. Requests use bounded results, a five-minute upstream cache, timeout and best-effort per-instance burst limits (not a global serverless quota). For larger traffic, configure PHOTON_BASE_URL to a dedicated Photon instance. Do not replace it with the public Nominatim endpoint: that service does not permit autocomplete. Only the address query is sent to Photon; contact details are not sent. UI attribution links to Photon and OpenStreetMap copyright.
 
 Checks: address parser tests, mocked desktop/mobile selection and outage flows, and a real-provider search for 225 Baker Street Atlanta. API errors do not mark an address as selected.
+
+## Work details
+
+The shared creation form and dashboard now support project type (single-family, multi-family, commercial, other), work type (new construction, remodel, repair, other), priority, lot/unit, planned start, general site notes and access instructions. Additional fields are optional; legacy classifications remain unknown. Notes are shared with the team members who can already access the project under RLS. Office/owner users can edit the details from the dashboard. Planned start must not be after the target date; actual start remains a separate field.
