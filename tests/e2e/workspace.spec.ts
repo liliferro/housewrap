@@ -44,9 +44,14 @@ test("create a project, calculate an estimate, report and retain the data", asyn
     .getByRole("button", { name: "Vista general", exact: true })
     .click();
   await expect(
-    page.getByText("Muro norte completo, flashing pendiente."),
+    page
+      .locator(".operation-card")
+      .getByText("Muro norte completo, flashing pendiente."),
   ).toBeVisible();
-  await page.getByRole("button", { name: /Prueba QA/ }).click();
+  await page
+    .locator(".operation-card")
+    .getByRole("button", { name: /Prueba QA/ })
+    .click();
   const dashboard = page.getByRole("dialog");
   await expect(
     dashboard.getByText("DASHBOARD DE OBRA", { exact: true }),

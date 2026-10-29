@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
+  HardHat,
   ArrowRight,
   Building2,
   ClipboardList,
@@ -12,7 +13,6 @@ import {
   Plus,
   Search,
   Settings,
-  HardHat,
   MapPin,
   Check,
   ChevronRight,
@@ -34,6 +34,7 @@ import { ProjectDetailFields } from "./project-detail-fields";
 import { parseProjectDetails } from "@/lib/project-details";
 import { AddressInput } from "./address-input";
 import { parseProjectAddress } from "@/lib/address";
+import { OperationsDashboard } from "./operations-dashboard";
 import { ProjectDashboard } from "./project-dashboard";
 import { MediaComposer, ProgressAttachments } from "./progress-media";
 import {
@@ -316,7 +317,6 @@ export function Workspace({
       .includes(search.toLowerCase()),
   );
   const pending = data.estimates.filter((e) => e.status === "draft");
-  const approved = data.estimates.filter((e) => e.status === "approved");
   let calculation: ReturnType<typeof calculate> | null = null;
   try {
     calculation = calculate(calc);
@@ -604,7 +604,7 @@ export function Workspace({
                     {
                       {
                         contacts: "Tus builders, siempre a mano.",
-                        overview: "Una buena vista de tu trabajo.",
+                        overview: "El estado de tus obras, en un vistazo.",
                         projects: "Cada obra, en su lugar.",
                         estimates: "De las medidas al estimado.",
                         field: "Cuéntanos cómo va la obra.",
@@ -662,119 +662,48 @@ export function Workspace({
               )}
               {tab === "overview" && (
                 <>
-                  <div className="stats">
-                    <article>
-                      <span>
-                        Obras activas <Building2 size={18} />
-                      </span>
-                      <strong>
-                        {data.projects
-                          .filter((p) => p.status === "active")
-                          .length.toString()
-                          .padStart(2, "0")}
-                      </strong>
-                      <small>Proyectos en ejecución</small>
-                    </article>
-                    <article>
-                      <span>
-                        Por revisar <FileText size={18} />
-                      </span>
-                      <strong>
-                        {pending.length.toString().padStart(2, "0")}
-                      </strong>
-                      <small>Estimados en borrador</small>
-                    </article>
-                    <article>
-                      <span>
-                        Valor aprobado <ArrowUpRight size={18} />
-                      </span>
-                      <strong>
-                        {money(
-                          approved.reduce((s, e) => s + Number(e.total), 0),
-                        )}
-                      </strong>
-                      <small>Aprobación interna · sin envío</small>
-                    </article>
-                    <article>
-                      <span>
-                        Avances recibidos <ClipboardList size={18} />
-                      </span>
-                      <strong>
-                        {data.reports.length.toString().padStart(2, "0")}
-                      </strong>
-                      <small>Pendientes de revisión operativa</small>
-                    </article>
-                  </div>
-                  <div className="overview-grid">
-                    <section className="panel">
-                      <div className="section-head">
-                        <h2>
-                          Obras en movimiento{" "}
-                          <span>{data.projects.length}</span>
-                        </h2>
-                        <button
-                          className="text-link"
-                          onClick={() => navigate("projects")}
-                        >
-                          Ver todas <ArrowRight size={15} />
-                        </button>
-                      </div>
-                      <ProjectList
-                        projects={namedProjects.slice(0, 4)}
-                        open={setSelected}
-                      />
-                    </section>
-                    <section className="field-promo">
-                      <div className="mini-icon">
-                        <HardHat size={26} />
-                      </div>
-                      <p className="eyebrow">DESDE LA OBRA</p>
-                      <h2>
-                        Menos libreta.
-                        <br />
-                        Más claridad.
-                      </h2>
-                      <p>
-                        Registra el trabajo del día y deja los pendientes a la
-                        vista.
-                      </p>
-                      <button
-                        className="button light"
-                        onClick={() => navigate("field")}
-                      >
-                        Registrar avance <ArrowRight size={17} />
-                      </button>
-                      <div className="promo-lines" aria-hidden="true">
-                        <i />
-                        <i />
-                        <i />
-                      </div>
-                    </section>
-                  </div>
+                  <OperationsDashboard
+                    data={data}
+                    canManage={canManage}
+                    open={(id) =>
+                      setSelected(
+                        namedProjects.find((p) => p.id === id) || null,
+                      )
+                    }
+                    field={() => navigate("field")}
+                  />
                   <section className="panel activity-panel">
                     <div className="section-head">
                       <h2>Lo último del equipo</h2>
                       <span className="muted small">Avances de obra</span>
                     </div>
                     {data.reports.length ? (
-                      data.reports.slice(0, 4).map((r) => (
-                        <div className="activity" key={r.id}>
-                          <span className="activity-icon">
-                            <ClipboardList size={18} />
-                          </span>
-                          <div>
-                            <strong>
-                              {data.projects.find((p) => p.id === r.project_id)
-                                ?.name || "Obra asignada"}
-                            </strong>
-                            <p>{r.notes || "Avance con archivos adjuntos"}</p>
-                            <ProgressAttachments attachments={r.attachments} />
+                      [...data.reports]
+                        .sort((a, b) =>
+                          b.created_at.localeCompare(a.created_at),
+                        )
+                        .slice(0, 4)
+                        .map((r) => (
+                          <div className="activity" key={r.id}>
+                            <span className="activity-icon">
+                              <ClipboardList size={18} />
+                            </span>
+                            <div>
+                              <strong>
+                                {data.projects.find(
+                                  (p) => p.id === r.project_id,
+                                )?.name || "Obra asignada"}
+                              </strong>
+                              <p>{r.notes || "Avance con archivos adjuntos"}</p>
+                              <ProgressAttachments
+                                attachments={r.attachments}
+                              />
+                            </div>
+                            <span className="muted small">
+                              {num(r.hours)} h · {num(r.rolls)} rollos
+                            </span>
                           </div>
-                          <span className="muted small">
-                            {num(r.hours)} h · {num(r.rolls)} rollos
-                          </span>
-                        </div>
-                      ))
+                        ))
                     ) : (
                       <div className="empty-inline">
                         <Clock size={22} />
