@@ -1,3 +1,4 @@
+import { projectQuote } from "./quote";
 import type { Data, Project } from "./model";
 
 export function deliveryDays(target: string | null, today: Date) {
@@ -13,12 +14,7 @@ export function operationMetrics(project: Project, data: Data, today: Date) {
   const reports = data.reports
     .filter((r) => r.project_id === project.id)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const quote = data.estimates.find(
-    (e) =>
-      e.project_id === project.id &&
-      e.id === project.quoted_estimate_id &&
-      e.status === "approved",
-  );
+  const quote = projectQuote(project, data);
   const rolls = reports.reduce((sum, r) => sum + Number(r.rolls), 0);
   const hours = reports.reduce((sum, r) => sum + Number(r.hours), 0);
   const days = deliveryDays(project.target_date, today);

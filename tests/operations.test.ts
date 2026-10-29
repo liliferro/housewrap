@@ -55,8 +55,8 @@ test("operations isolate reports, use only selected approved quote, and suppress
   assert.equal(m.days, -3);
   assert.equal(m.alerts.length, 3);
   assert.equal(
-    operationMetrics({ ...p, quoted_estimate_id: null }, data, now).quote,
-    undefined,
+    operationMetrics({ ...p, quoted_estimate_id: null }, data, now).quote?.id,
+    "q",
   );
   assert.deepEqual(
     operationMetrics({ ...p, status: "done" }, data, now).alerts,

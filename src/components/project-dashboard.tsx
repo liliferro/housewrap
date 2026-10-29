@@ -1,4 +1,5 @@
 "use client";
+import { projectQuote } from "@/lib/quote";
 import { ProjectDetailsPanel } from "./project-detail-fields";
 import { ReviewStatus } from "./progress-review";
 import { ProgressAttachments } from "./progress-media";
@@ -14,9 +15,7 @@ import {
 export function projectMetrics(project: Project, data: Data, now = Date.now()) {
   const reports = data.reports.filter((r) => r.project_id === project.id);
   const estimates = data.estimates.filter((e) => e.project_id === project.id);
-  const quote = estimates.find(
-    (e) => e.id === project.quoted_estimate_id && e.status === "approved",
-  );
+  const quote = projectQuote(project, data);
   const rolls = reports.reduce((n, r) => n + Number(r.rolls), 0);
   const hours = reports.reduce((n, r) => n + Number(r.hours), 0);
   const elapsed = project.started_at
@@ -77,7 +76,9 @@ export function ProjectDashboard({
           </strong>
           <small>
             {m.quote
-              ? "Referencia seleccionada · USD"
+              ? project.quoted_estimate_id === m.quote.id
+                ? "Referencia seleccionada · USD"
+                : "Último aprobado · USD"
               : "Selecciona un estimado aprobado"}
           </small>
         </article>
@@ -263,7 +264,7 @@ export function ProjectDashboard({
                 }
               }}
             >
-              <option value="">Sin cotización registrada</option>
+              <option value="">Automático: último estimado aprobado</option>
               {m.estimates
                 .filter((e) => e.status === "approved")
                 .map((e) => (
@@ -275,9 +276,9 @@ export function ProjectDashboard({
             </select>
           </label>
           <p className="muted small">
-            Selecciona el estimado aprobado que usaste para cotizar. Este
-            registro no envía la cotización ni confirma la aceptación del
-            builder. Las versiones no se suman.
+            Se usa el último aprobado automáticamente; puedes elegir otra
+            versión. Este registro no envía la cotización ni confirma la
+            aceptación del builder. Las versiones no se suman.
           </p>
           {m.quote && (
             <p>

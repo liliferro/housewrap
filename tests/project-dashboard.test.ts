@@ -58,8 +58,8 @@ test("dashboard isolates works, sums decimal reports and selects only the quoted
   assert.equal(m.reports.length, 2);
   assert.equal(
     projectMetrics({ ...p, quoted_estimate_id: null, started_at: null }, data)
-      .quote,
-    undefined,
+      .quote?.id,
+    "quoted",
   );
   assert.equal(projectMetrics({ ...p, started_at: null }, data).elapsed, null);
 });
