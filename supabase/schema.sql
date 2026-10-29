@@ -1,0 +1,115 @@
+-- Housewrap foundation. Apply as a single transaction to a dedicated project.
+begin;
+create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+
+create table public.memberships (
+ user_id uuid primary key references auth.users(id) on delete cascade,
+ role text not null check (role in ('owner','office','crew_lead','worker')),
+ active boolean not null default true
+);
+alter table public.memberships enable row level security;
+grant select on public.memberships to authenticated;
+create policy membership_self on public.memberships for select to authenticated using (user_id=(select auth.uid()) and active);
+
+-- Private authorization lookup must inspect memberships without recursive RLS.
+create function private.has_role(allowed text[]) returns boolean
+language sql stable security definer set search_path='' as $$
+ select auth.uid() is not null and exists(select 1 from public.memberships where user_id=auth.uid() and active and role=any(allowed));
+$$;
+revoke all on function private.has_role(text[]) from public,anon;
+grant execute on function private.has_role(text[]) to authenticated;
+
+create table public.projects (
+ id uuid primary key default gen_random_uuid(),
+ name text not null check(length(trim(name)) between 2 and 100),
+ builder text not null check(length(trim(builder)) between 2 and 100),
+ address text not null check(length(trim(address)) between 3 and 200),
+ status text not null default 'scheduled' check(status in ('scheduled','active','done')),
+ target_date date,
+ created_at timestamptz not null default now()
+);
+create table public.assignments (
+ project_id uuid not null references public.projects(id) on delete cascade,
+ user_id uuid not null references public.memberships(user_id) on delete cascade,
+ primary key(project_id,user_id)
+);
+create index assignments_user_idx on public.assignments(user_id);
+alter table public.projects enable row level security;
+alter table public.assignments enable row level security;
+grant select,insert,update on public.projects to authenticated;
+grant select,insert,update,delete on public.assignments to authenticated;
+create policy assignments_read on public.assignments for select to authenticated using(user_id=(select auth.uid()) or private.has_role(array['owner','office']));
+create policy assignments_manage on public.assignments for all to authenticated using(private.has_role(array['owner','office'])) with check(private.has_role(array['owner','office']));
+create policy projects_read on public.projects for select to authenticated using(private.has_role(array['owner','office']) or (private.has_role(array['crew_lead','worker']) and exists(select 1 from public.assignments a where a.project_id=id and a.user_id=(select auth.uid()))));
+create policy projects_insert on public.projects for insert to authenticated with check(private.has_role(array['owner','office']));
+create policy projects_update on public.projects for update to authenticated using(private.has_role(array['owner','office'])) with check(private.has_role(array['owner','office']));
+
+create table public.estimates (
+ id uuid primary key default gen_random_uuid(),
+ project_id uuid not null references public.projects(id),
+ area numeric(12,2) not null check(area>0 and area<=1000000),
+ rate numeric(12,2) not null check(rate>0 and rate<=10000),
+ waste numeric(5,2) not null check(waste between 0 and 50),
+ roll_size numeric(12,2) not null check(roll_size>0 and roll_size<=100000),
+ rolls integer generated always as (ceil(area*(1+waste/100)/roll_size)::integer) stored,
+ total numeric(16,2) generated always as (round(area*rate,2)) stored,
+ status text not null default 'draft' check(status in ('draft','approved')),
+ created_by uuid not null default auth.uid() references auth.users(id),
+ approved_by uuid references auth.users(id),
+ approved_at timestamptz,
+ created_at timestamptz not null default now()
+);
+create index estimates_project_idx on public.estimates(project_id);
+alter table public.estimates enable row level security;
+grant select on public.estimates to authenticated;
+grant insert(project_id,area,rate,waste,roll_size) on public.estimates to authenticated;
+grant update(status) on public.estimates to authenticated;
+create policy estimates_read on public.estimates for select to authenticated using(private.has_role(array['owner','office']));
+create policy estimates_insert on public.estimates for insert to authenticated with check(private.has_role(array['owner','office']) and status='draft' and created_by=(select auth.uid()) and approved_by is null and approved_at is null);
+create policy estimates_approve on public.estimates for update to authenticated using(private.has_role(array['owner']) and status='draft') with check(private.has_role(array['owner']) and status='approved');
+create function private.stamp_estimate_approval() returns trigger language plpgsql security invoker set search_path='' as $$
+begin
+ if old.status<>'draft' or new.status<>'approved' or not private.has_role(array['owner']) then raise exception 'Only the owner can approve a draft'; end if;
+ new.approved_by:=auth.uid(); new.approved_at:=now(); return new;
+end; $$;
+revoke all on function private.stamp_estimate_approval() from public,anon;
+create trigger stamp_approval before update on public.estimates for each row execute function private.stamp_estimate_approval();
+
+create function public.create_estimate(p_project_id uuid,p_area numeric,p_rate numeric,p_waste numeric,p_roll_size numeric)
+returns public.estimates language plpgsql security invoker set search_path='' as $$
+declare result public.estimates;
+begin
+ insert into public.estimates(project_id,area,rate,waste,roll_size) values(p_project_id,p_area,p_rate,p_waste,p_roll_size) returning * into result;
+ return result;
+end; $$;
+create function public.approve_estimate(p_id uuid) returns public.estimates
+language plpgsql security invoker set search_path='' as $$
+declare result public.estimates;
+begin
+ update public.estimates set status='approved' where id=p_id and status='draft' returning * into result;
+ if not found then raise exception 'Draft not found or approval not permitted'; end if;
+ return result;
+end; $$;
+revoke all on function public.create_estimate(uuid,numeric,numeric,numeric,numeric) from public,anon;
+revoke all on function public.approve_estimate(uuid) from public,anon;
+grant execute on function public.create_estimate(uuid,numeric,numeric,numeric,numeric) to authenticated;
+grant execute on function public.approve_estimate(uuid) to authenticated;
+
+create table public.field_reports (
+ id uuid primary key,
+ project_id uuid not null references public.projects(id),
+ author_id uuid not null references auth.users(id),
+ notes text not null check(length(trim(notes)) between 5 and 2000),
+ hours numeric(5,2) not null check(hours between 0 and 24),
+ rolls numeric(6,2) not null check(rolls between 0 and 100),
+ created_at timestamptz not null default now()
+);
+create index reports_project_idx on public.field_reports(project_id);
+create index reports_author_idx on public.field_reports(author_id);
+alter table public.field_reports enable row level security;
+grant select,insert on public.field_reports to authenticated;
+create policy reports_read on public.field_reports for select to authenticated using(private.has_role(array['owner','office']) or (author_id=(select auth.uid()) and private.has_role(array['worker','crew_lead'])));
+create policy reports_insert on public.field_reports for insert to authenticated with check(author_id=(select auth.uid()) and (private.has_role(array['owner','office']) or (private.has_role(array['worker','crew_lead']) and exists(select 1 from public.assignments a where a.project_id=field_reports.project_id and a.user_id=(select auth.uid())))));
+commit;
