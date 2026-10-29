@@ -34,6 +34,8 @@ import { ProjectDetailFields } from "./project-detail-fields";
 import { parseProjectDetails } from "@/lib/project-details";
 import { AddressInput } from "./address-input";
 import { parseProjectAddress } from "@/lib/address";
+import { SalesPipeline } from "./sales-pipeline";
+import { type PipelineStage, pipelineOpportunity } from "@/lib/pipeline";
 import { EstimateProjectInfo } from "./estimate-project-info";
 import { OperationsDashboard } from "./operations-dashboard";
 import { ProjectDashboard } from "./project-dashboard";
@@ -142,6 +144,9 @@ export function Workspace({
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"project" | "estimate" | null>(null);
   const [estimateProject, setEstimateProject] = useState("");
+  const [estimateView, setEstimateView] = useState<"pipeline" | "list">(
+    "pipeline",
+  );
   const [creatingEstimateProject, setCreatingEstimateProject] = useState(false);
   const [selected, setSelectedState] = useState<Project | null>(null);
   function setSelected(p: Project | null) {
@@ -406,10 +411,49 @@ export function Workspace({
         );
       row = data;
     }
-    persist({ ...data, estimates: [row, ...data.estimates] });
+    persist({
+      ...data,
+      estimates: [row, ...data.estimates],
+      projects: data.projects.map((p) => {
+        const stage = pipelineOpportunity(p, data).stage;
+        return p.id === project_id && ["received", "to_quote"].includes(stage)
+          ? {
+              ...p,
+              pipeline_stage: "quoted",
+              pipeline_changed_at: new Date().toISOString(),
+            }
+          : p;
+      }),
+    });
     setModal(null);
     setTab("estimates");
     setNotice("Estimado guardado como borrador.");
+  }
+  async function moveOpportunity(id: string, stage: PipelineStage) {
+    await run(async () => {
+      let patch: Partial<Project> = {
+        pipeline_stage: stage,
+        pipeline_changed_at: new Date().toISOString(),
+      };
+      if (!demo) {
+        const result = await browserDb()
+          .from("projects")
+          .update({ pipeline_stage: stage })
+          .eq("id", id)
+          .select("pipeline_stage,pipeline_changed_at")
+          .single();
+        if (result.error)
+          throw new Error("No se pudo cambiar la etapa. Intenta de nuevo.");
+        patch = result.data;
+      }
+      persist({
+        ...data,
+        projects: data.projects.map((p) =>
+          p.id === id ? { ...p, ...patch } : p,
+        ),
+      });
+      setNotice("Etapa comercial actualizada.");
+    });
   }
   async function approve(e: Estimate) {
     if (
@@ -607,7 +651,7 @@ export function Workspace({
                         contacts: "Tus builders, siempre a mano.",
                         overview: "El estado de tus obras, en un vistazo.",
                         projects: "Cada obra, en su lugar.",
-                        estimates: "De las medidas al estimado.",
+                        estimates: "Cada oportunidad, en su etapa.",
                         field: "Cuéntanos cómo va la obra.",
                         settings: "La base de tu espacio.",
                       }[tab]
@@ -746,75 +790,112 @@ export function Workspace({
                     medición automática de planos y las recetas por fabricante
                     aún no están habilitadas.
                   </div>
-                  <section className="panel">
-                    {data.estimates.length ? (
-                      <div className="table-scroll">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Obra</th>
-                              <th>Área</th>
-                              <th>Material preliminar</th>
-                              <th>Total</th>
-                              <th>Estado</th>
-                              <th>Acciones</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {data.estimates.map((e) => (
-                              <tr key={e.id}>
-                                <td>
-                                  <EstimateProjectInfo
-                                    data={data}
-                                    projectId={e.project_id}
-                                    open={() =>
-                                      setSelected(
-                                        namedProjects.find(
-                                          (p) => p.id === e.project_id,
-                                        ) || null,
-                                      )
-                                    }
-                                  />
-                                  <small>Estimado #{e.id.slice(0, 8)}</small>
-                                </td>
-                                <td>{num(e.area)} ft²</td>
-                                <td>{e.rolls} rollos</td>
-                                <td className="amount">{money(e.total)}</td>
-                                <td>
-                                  <Status status={e.status} />
-                                </td>
-                                <td>
-                                  <div className="actions">
-                                    {e.status === "draft" && canApprove && (
-                                      <button
-                                        className="button compact outline"
-                                        disabled={busy}
-                                        onClick={() => approve(e)}
-                                      >
-                                        Aprobar
-                                      </button>
-                                    )}
-                                    <button
-                                      className="icon-button"
-                                      aria-label="Descargar resumen del estimado"
-                                      onClick={() => exportEstimate(e)}
-                                    >
-                                      <Download size={18} />
-                                    </button>
-                                  </div>
-                                </td>
+                  <div
+                    className="operations-filters"
+                    aria-label="Vista de estimados"
+                  >
+                    <button
+                      aria-pressed={estimateView === "pipeline"}
+                      onClick={() => setEstimateView("pipeline")}
+                    >
+                      Pipeline
+                    </button>
+                    <button
+                      aria-pressed={estimateView === "list"}
+                      onClick={() => setEstimateView("list")}
+                    >
+                      Ver lista de estimados
+                    </button>
+                  </div>
+                  {estimateView === "pipeline" ? (
+                    <SalesPipeline
+                      data={data}
+                      busy={busy}
+                      canApprove={canApprove}
+                      move={(id, stage) => void moveOpportunity(id, stage)}
+                      open={(id) =>
+                        setSelected(
+                          namedProjects.find((p) => p.id === id) || null,
+                        )
+                      }
+                      prepare={(id) => {
+                        setEstimateProject(id);
+                        setModal("estimate");
+                      }}
+                      approve={(e) => void approve(e)}
+                      download={exportEstimate}
+                    />
+                  ) : (
+                    <section className="panel">
+                      {data.estimates.length ? (
+                        <div className="table-scroll">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Obra</th>
+                                <th>Área</th>
+                                <th>Material preliminar</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <Empty
-                        title="Tu próximo estimado empieza aquí."
-                        text="Crea una obra y agrega sus medidas para preparar el primer borrador."
-                      />
-                    )}
-                  </section>
+                            </thead>
+                            <tbody>
+                              {data.estimates.map((e) => (
+                                <tr key={e.id}>
+                                  <td>
+                                    <EstimateProjectInfo
+                                      data={data}
+                                      projectId={e.project_id}
+                                      open={() =>
+                                        setSelected(
+                                          namedProjects.find(
+                                            (p) => p.id === e.project_id,
+                                          ) || null,
+                                        )
+                                      }
+                                    />
+                                    <small>Estimado #{e.id.slice(0, 8)}</small>
+                                  </td>
+                                  <td>{num(e.area)} ft²</td>
+                                  <td>{e.rolls} rollos</td>
+                                  <td className="amount">{money(e.total)}</td>
+                                  <td>
+                                    <Status status={e.status} />
+                                  </td>
+                                  <td>
+                                    <div className="actions">
+                                      {e.status === "draft" && canApprove && (
+                                        <button
+                                          className="button compact outline"
+                                          disabled={busy}
+                                          onClick={() => approve(e)}
+                                        >
+                                          Aprobar
+                                        </button>
+                                      )}
+                                      <button
+                                        className="icon-button"
+                                        aria-label="Descargar resumen del estimado"
+                                        onClick={() => exportEstimate(e)}
+                                      >
+                                        <Download size={18} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <Empty
+                          title="Tu próximo estimado empieza aquí."
+                          text="Crea una obra y agrega sus medidas para preparar el primer borrador."
+                        />
+                      )}
+                    </section>
+                  )}
                 </>
               )}
               {tab === "field" && (

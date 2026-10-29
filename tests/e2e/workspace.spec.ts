@@ -21,6 +21,9 @@ test("create a project, calculate an estimate, report and retain the data", asyn
   await page
     .getByRole("button", { name: "Guardar borrador", exact: true })
     .click();
+  await page
+    .getByRole("button", { name: "Ver lista de estimados", exact: true })
+    .click();
   await expect(page.getByRole("cell", { name: "$3,000.00" })).toBeVisible();
   page.on("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Aprobar", exact: true }).click();

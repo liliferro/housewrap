@@ -2,6 +2,8 @@ import type { Attachment } from "./progress-media";
 import { z } from "zod";
 import type { ProjectDetails } from "./project-details";
 export type Project = Partial<ProjectDetails> & {
+  pipeline_stage?: import("./pipeline").PipelineStage;
+  pipeline_changed_at?: string | null;
   id: string;
   name: string;
   builder: string;

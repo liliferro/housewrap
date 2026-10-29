@@ -84,11 +84,17 @@ test("create a work inside an estimate without losing values, including an empty
   await page
     .getByRole("button", { name: "Guardar borrador", exact: true })
     .click();
+  await page
+    .getByRole("button", { name: "Ver lista de estimados", exact: true })
+    .click();
   await expect(
     page.getByRole("cell", { name: "$6,000.00", exact: true }),
   ).toBeVisible();
   await page.reload();
   await page.getByRole("button", { name: /^Estimados/ }).click();
+  await page
+    .getByRole("button", { name: "Ver lista de estimados", exact: true })
+    .click();
   await expect(page.locator(".estimate-work-info")).toContainText(
     "Marietta norte",
   );

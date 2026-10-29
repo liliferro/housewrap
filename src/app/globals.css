@@ -1824,3 +1824,110 @@ summary {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+.pipeline-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 20px;
+}
+.pipeline-board {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  align-items: stretch;
+  padding: 12px 0 24px;
+  max-width: 100%;
+  scroll-snap-type: x proximity;
+}
+.pipeline-column {
+  flex: 0 0 300px;
+  min-width: 0;
+  background: #edf1ef;
+  border-radius: 8px;
+  border: 1px solid #dce4df;
+  scroll-snap-align: start;
+}
+.pipeline-column > header {
+  padding: 20px;
+  border-top: 4px solid #728c9a;
+  border-radius: 8px 8px 0 0;
+  display: grid;
+  gap: 8px;
+}
+.pipeline-column h2 {
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+}
+.pipeline-column h2 span {
+  font-weight: 400;
+}
+.pipeline-column header > strong {
+  font-size: 24px;
+}
+.pipeline-column header small {
+  color: #637383;
+}
+.stage-won > header {
+  border-top-color: #3a9638;
+}
+.stage-lost > header {
+  border-top-color: #ad5b4e;
+}
+.stage-sent > header,
+.stage-reminder_1 > header,
+.stage-reminder_2 > header {
+  border-top-color: #cb963e;
+}
+.pipeline-items {
+  padding: 0 12px 12px;
+  display: grid;
+  gap: 12px;
+}
+.pipeline-card {
+  background: white;
+  border: 1px solid #d9e2dc;
+  border-radius: 6px;
+  padding: 15px;
+  min-width: 0;
+}
+.pipeline-card .estimate-work-info {
+  min-width: 0;
+}
+.pipeline-amount {
+  display: block;
+  font-size: 22px;
+  margin: 8px 0;
+}
+.pipeline-card label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  margin: 15px 0 8px;
+}
+.pipeline-card select {
+  padding: 10px;
+  min-width: 0;
+  width: 100%;
+  background: white;
+  color: #193047;
+  border: 1px solid #cbd6d0;
+  border-radius: 5px;
+}
+.pipeline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+.pipeline-actions .text-link {
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .pipeline-stats {
+    grid-template-columns: 1fr;
+  }
+  .pipeline-column {
+    flex-basis: 280px;
+  }
+}
