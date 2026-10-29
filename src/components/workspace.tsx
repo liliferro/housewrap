@@ -30,6 +30,8 @@ import {
   resolveContact,
 } from "./contacts";
 import { withDirectory } from "@/lib/model";
+import { AddressInput } from "./address-input";
+import { parseProjectAddress } from "@/lib/address";
 import { ProjectDashboard } from "./project-dashboard";
 import { Brand } from "./brand";
 import { browserDb } from "@/lib/supabase";
@@ -307,6 +309,7 @@ export function Workspace({
       data.builders.find((b) => b.id === raw.builder_id)?.name ||
       String(raw.builder || "");
     const values = projectSchema.parse({ ...raw, builder: builderName });
+    const location = parseProjectAddress(form);
     const { next, builder, contact } = await resolveContact(
       form,
       data,
@@ -315,6 +318,7 @@ export function Workspace({
     );
     const p = {
       ...values,
+      ...location,
       builder: builder.name,
       builder_id: builder.id,
       contact_id: contact.id,
@@ -1408,6 +1412,25 @@ export function Workspace({
                 <br />
                 {selected.address}
               </p>
+              {selected.address_source === "photon" &&
+              selected.latitude != null &&
+              selected.longitude != null ? (
+                <a
+                  className="text-link"
+                  target="_blank"
+                  rel="noreferrer"
+                  href={`https://www.openstreetmap.org/?mlat=${selected.latitude}&mlon=${selected.longitude}#map=18/${selected.latitude}/${selected.longitude}`}
+                >
+                  Ver dirección seleccionada en el mapa ↗
+                </a>
+              ) : (
+                <p className="small muted">
+                  Dirección pendiente de verificar
+                  {selected.address_review_note
+                    ? `: ${selected.address_review_note}`
+                    : "."}
+                </p>
+              )}
               <p>
                 <strong>Fecha objetivo</strong>
                 <br />
@@ -1548,10 +1571,7 @@ function ProjectFields({ data }: { data: Data }) {
         />
       </label>
       <RelationFields data={data} />
-      <label>
-        Dirección de la obra
-        <input name="address" required minLength={3} maxLength={200} />
-      </label>
+      <AddressInput />
       <label>
         Fecha objetivo <span className="muted">(opcional)</span>
         <input name="target_date" type="date" />

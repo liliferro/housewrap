@@ -1,3 +1,4 @@
+import { fillAddress } from "./address-helper";
 import { test, expect } from "@playwright/test";
 
 test("reuse a builder and contact across works and edit shared contact details", async ({
@@ -13,7 +14,7 @@ test("reuse a builder and contact across works and edit shared contact details",
   await page
     .getByLabel("Teléfono (opcional)", { exact: true })
     .fill("+1 404 555 0101");
-  await page.getByLabel("Dirección de la obra").fill("Atlanta GA");
+  await fillAddress(page);
   await page.getByRole("button", { name: "Crear obra", exact: true }).click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await page.getByRole("button", { name: "Nueva obra" }).click();
@@ -24,19 +25,17 @@ test("reuse a builder and contact across works and edit shared contact details",
   await page
     .getByLabel("Seleccionar contacto")
     .selectOption({ label: "María Builder" });
-  await page.getByLabel("Dirección de la obra").fill("Marietta GA");
+  await fillAddress(page);
   await page.getByRole("button", { name: "Crear obra", exact: true }).click();
   await page
     .getByRole("button", { name: "Builders y contactos", exact: true })
     .click();
-  const card = page
-    .locator(".builder-card")
-    .filter({
-      has: page.getByRole("heading", {
-        name: "Builder compartido",
-        exact: true,
-      }),
-    });
+  const card = page.locator(".builder-card").filter({
+    has: page.getByRole("heading", {
+      name: "Builder compartido",
+      exact: true,
+    }),
+  });
   await expect(card).toContainText("2 obras");
   await card.getByRole("button", { name: "Editar contacto" }).click();
   await card

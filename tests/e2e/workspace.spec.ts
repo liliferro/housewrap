@@ -1,3 +1,4 @@
+import { fillAddress } from "./address-helper";
 import { test, expect } from "@playwright/test";
 test("create a project, calculate an estimate, report and retain the data", async ({
   page,
@@ -8,7 +9,7 @@ test("create a project, calculate an estimate, report and retain the data", asyn
   await page.getByLabel("Nombre de la obra").fill("Prueba QA");
   await page.getByLabel("Builder", { exact: true }).fill("Builder QA");
   await page.getByLabel("Persona de contacto", { exact: true }).fill("Ana QA");
-  await page.getByLabel("Dirección de la obra").fill("Atlanta GA");
+  await fillAddress(page);
   await page.getByRole("button", { name: "Crear obra", exact: true }).click();
   await expect(page.getByRole("button", { name: /Prueba QA/ })).toBeVisible();
   await page.getByRole("button", { name: "Estimados", exact: true }).click();

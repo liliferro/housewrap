@@ -53,3 +53,11 @@ Existing works retain their original builder text for backward compatibility; th
 Open any work to view its dashboard; its #obra= link can be reopened or shared with authorized teammates. Office/owner users select one approved estimate as the quoted reference (versions are never summed), record manual progress and actual start/end timestamps, and see all visible worker reports with roll/hour totals. Worker views retain existing RLS restrictions and do not expose estimate amounts. Calendar elapsed hours and reported labor hours are separate; reports remain pending review. New reports capture a declared worker name while auth.user remains the authoritative author identity. No historical start dates or progress are fabricated for existing works.
 
 Validation: tests/project-dashboard.test.ts, the desktop/mobile workspace flow, and supabase/tests/project-dashboard.sql (transaction rolled back).
+
+## Address suggestions
+
+Work creation (including inside estimates) searches US numbered street addresses through Photon/OpenStreetMap after 900 ms of inactivity. Choosing a result stores its normalized address, OSM reference and coordinates; editing the text invalidates the selection. This is a map match, not postal/deliverability verification. New construction can be explicitly marked pending with a required review note; older works remain unverified. The dashboard links selected locations to OpenStreetMap.
+
+The public Photon service permits moderate project use but has no availability SLA: https://github.com/komoot/photon#demo-server. Requests use bounded results, a five-minute upstream cache, timeout and best-effort per-instance burst limits (not a global serverless quota). For larger traffic, configure PHOTON_BASE_URL to a dedicated Photon instance. Do not replace it with the public Nominatim endpoint: that service does not permit autocomplete. Only the address query is sent to Photon; contact details are not sent. UI attribution links to Photon and OpenStreetMap copyright.
+
+Checks: address parser tests, mocked desktop/mobile selection and outage flows, and a real-provider search for 225 Baker Street Atlanta. API errors do not mark an address as selected.

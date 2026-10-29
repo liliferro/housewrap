@@ -11,6 +11,11 @@ export type Project = {
   finished_at?: string | null;
   quoted_estimate_id?: string | null;
   address: string;
+  address_source?: "photon" | "manual" | null;
+  address_ref?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  address_review_note?: string | null;
   status: "scheduled" | "active" | "done";
   target_date: string | null;
   created_at: string;

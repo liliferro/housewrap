@@ -1556,3 +1556,47 @@ summary {
     font-size: 23px;
   }
 }
+
+.address-search {
+  margin: 18px 0;
+}
+.address-search > label:first-child {
+  margin-bottom: 8px;
+}
+.address-search ul {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  max-height: 240px;
+  overflow: auto;
+}
+.address-search li button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px;
+  background: white;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  font: inherit;
+  color: var(--navy);
+}
+.address-search li button:hover,
+.address-search li button[aria-selected="true"] {
+  background: #edf6e9;
+}
+.address-manual {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  margin-top: 16px;
+}
+.address-manual input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}

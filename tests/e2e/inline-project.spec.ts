@@ -1,3 +1,4 @@
+import { fillAddress } from "./address-helper";
 import { test, expect } from "@playwright/test";
 test("create a work inside an estimate without losing values, including an empty workspace", async ({
   page,
@@ -42,7 +43,7 @@ test("create a work inside an estimate without losing values, including an empty
   await page
     .getByLabel("Correo electrónico (opcional)")
     .fill("laura@example.com");
-  await page.getByLabel("Dirección de la obra").fill("Atlanta GA");
+  await fillAddress(page);
   await page
     .getByRole("button", { name: "Crear obra y continuar", exact: true })
     .click();
