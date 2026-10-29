@@ -123,7 +123,7 @@ export const money = (n: number) =>
     maximumFractionDigits: 2,
   }).format(n);
 export const num = (n: number) =>
-  new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(n);
+  new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);
 export function demoData(): Data {
   const now = new Date().toISOString();
   return {
