@@ -129,6 +129,7 @@ export function Workspace({
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"project" | "estimate" | null>(null);
   const [estimateProject, setEstimateProject] = useState("");
+  const [creatingEstimateProject, setCreatingEstimateProject] = useState(false);
   const [selected, setSelectedState] = useState<Project | null>(null);
   function setSelected(p: Project | null) {
     setSelectedState(p);
@@ -300,7 +301,7 @@ export function Workspace({
   } catch {
     /* Show validation in form. */
   }
-  async function addProject(form: FormData) {
+  async function addProject(form: FormData, fromEstimate = false) {
     const raw = Object.fromEntries(form);
     const builderName =
       data.builders.find((b) => b.id === raw.builder_id)?.name ||
@@ -340,9 +341,15 @@ export function Workspace({
       created = data;
     }
     persist({ ...next, projects: [created, ...next.projects] });
-    setModal(null);
-    setNotice("Obra creada. Ya puedes preparar su estimado.");
-    setTab("projects");
+    if (fromEstimate) {
+      setEstimateProject(created.id);
+      setCreatingEstimateProject(false);
+      setNotice("Obra creada y seleccionada para este estimado.");
+    } else {
+      setModal(null);
+      setNotice("Obra creada. Ya puedes preparar su estimado.");
+      setTab("projects");
+    }
   }
   async function addEstimate(form: FormData) {
     const values = calculate(calc);
@@ -620,8 +627,10 @@ export function Workspace({
                 {canManage && tab === "estimates" && (
                   <button
                     className="button primary"
-                    onClick={() => setModal("estimate")}
-                    disabled={!data.projects.length}
+                    onClick={() => {
+                      setCreatingEstimateProject(false);
+                      setModal("estimate");
+                    }}
                   >
                     <Plus size={18} /> Nuevo estimado
                   </button>
@@ -1101,26 +1110,7 @@ export function Workspace({
               void run(() => addProject(f));
             }}
           >
-            <label>
-              Nombre de la obra
-              <input
-                name="name"
-                required
-                minLength={2}
-                maxLength={100}
-                placeholder="Oakview · Lot 14"
-                autoFocus
-              />
-            </label>
-            <RelationFields data={data} />
-            <label>
-              Dirección de la obra
-              <input name="address" required minLength={3} maxLength={200} />
-            </label>
-            <label>
-              Fecha objetivo <span className="muted">(opcional)</span>
-              <input name="target_date" type="date" />
-            </label>
+            <ProjectFields data={data} />
             {error && (
               <p className="error" role="alert">
                 {error}
@@ -1134,8 +1124,52 @@ export function Workspace({
         </Modal>
       )}
       {modal === "estimate" && (
-        <Modal title="Preparar estimado" close={() => setModal(null)}>
+        <Modal
+          title="Preparar estimado"
+          close={() => {
+            setModal(null);
+            setCreatingEstimateProject(false);
+          }}
+        >
+          {creatingEstimateProject && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                void run(() => addProject(f, true));
+              }}
+            >
+              <h3>Nueva obra para este estimado</h3>
+              <p className="muted">
+                Tus medidas y tarifa se conservarán al continuar.
+              </p>
+              <ProjectFields data={data} />
+              {error && (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              )}
+              <div className="actions">
+                <button className="button primary" disabled={busy}>
+                  Crear obra y continuar
+                </button>
+                <button
+                  type="button"
+                  className="button outline"
+                  disabled={busy}
+                  onClick={() => {
+                    setCreatingEstimateProject(false);
+                    setError("");
+                  }}
+                >
+                  Cancelar nueva obra
+                </button>
+              </div>
+            </form>
+          )}
           <form
+            hidden={creatingEstimateProject}
+            style={creatingEstimateProject ? { display: "none" } : undefined}
             onSubmit={(e) => {
               e.preventDefault();
               const f = new FormData(e.currentTarget);
@@ -1149,8 +1183,16 @@ export function Workspace({
                 aria-label="Obra"
                 required
                 autoFocus
-                defaultValue={estimateProject || undefined}
+                value={
+                  data.projects.some((p) => p.id === estimateProject)
+                    ? estimateProject
+                    : data.projects[0]?.id || ""
+                }
+                onChange={(e) => setEstimateProject(e.target.value)}
               >
+                {!data.projects.length && (
+                  <option value="">Crea tu primera obra para continuar</option>
+                )}
                 {data.projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -1158,6 +1200,17 @@ export function Workspace({
                 ))}
               </select>
             </label>
+            <button
+              type="button"
+              className="text-link"
+              disabled={busy}
+              onClick={() => {
+                setCreatingEstimateProject(true);
+                setError("");
+              }}
+            >
+              + Crear nueva obra
+            </button>
             <div className="form-grid">
               {(
                 [
@@ -1231,7 +1284,10 @@ export function Workspace({
                 {error}
               </p>
             )}
-            <button className="button primary" disabled={busy || !calculation}>
+            <button
+              className="button primary"
+              disabled={busy || !calculation || !data.projects.length}
+            >
               {busy ? "Guardando…" : "Guardar borrador"}
               <Check size={18} />
             </button>
@@ -1408,6 +1464,7 @@ export function Workspace({
                   className="button primary"
                   onClick={() => {
                     setEstimateProject(selected.id);
+                    setCreatingEstimateProject(false);
                     setSelected(null);
                     setModal("estimate");
                   }}
@@ -1473,5 +1530,32 @@ function Empty({ title, text }: { title: string; text: string }) {
       <h3>{title}</h3>
       <p>{text}</p>
     </div>
+  );
+}
+
+function ProjectFields({ data }: { data: Data }) {
+  return (
+    <>
+      <label>
+        Nombre de la obra
+        <input
+          name="name"
+          required
+          minLength={2}
+          maxLength={100}
+          placeholder="Oakview · Lot 14"
+          autoFocus
+        />
+      </label>
+      <RelationFields data={data} />
+      <label>
+        Dirección de la obra
+        <input name="address" required minLength={3} maxLength={200} />
+      </label>
+      <label>
+        Fecha objetivo <span className="muted">(opcional)</span>
+        <input name="target_date" type="date" />
+      </label>
+    </>
   );
 }
