@@ -46,7 +46,12 @@ export default function Activate() {
               if (token) {
                 const result = await db.auth.verifyOtp({
                   token_hash: token,
-                  type: "invite",
+                  type:
+                    new URLSearchParams(window.location.hash.slice(1)).get(
+                      "type",
+                    ) === "recovery"
+                      ? "recovery"
+                      : "invite",
                 });
                 if (result.error)
                   throw new Error(

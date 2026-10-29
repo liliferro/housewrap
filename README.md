@@ -4,6 +4,10 @@ Initial working foundation for the Quality Housewrap MVP. Next.js App Router, Re
 
 ## Available now
 
+- Workers: office creates worker accounts with a server-only secret, generates an activation link without sending email, and assigns workers when creating or editing a project. Workers see their assigned projects and their own hours; identity and assignment are enforced on report insertion in Postgres.
+- Weekly base pay: Monday–Sunday, grouped by work date and authenticated worker ID. Only approved reports count toward pay. Date-effective rates are retained; missing rates make the total incomplete. This is an estimate, not a payment ledger, overtime calculation, tax calculation or bank transfer. Legacy reports without a linked worker are flagged instead of matched by name.
+- Deployment requires `SUPABASE_SECRET_KEY` on the server only, in addition to the public Supabase variables. `/api/workers` verifies the current session, active office/owner membership and same-origin POST before any administrative operation; it never accepts a caller-supplied role or redirect destination. Activation links must be shared only with the intended worker.
+
 - Branded responsive operations workspace, in Spanish.
 - Projects: create, browse, search, update status and assign a reusable builder/contact.
 - Builders and contacts directory: multiple people and works per builder, editable contact details, independently optional email and phone. Contacts cannot be assigned to a different builder by mistake.

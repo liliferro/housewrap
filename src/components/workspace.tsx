@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { readAll } from "@/lib/read-all";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -34,6 +35,9 @@ import { ProjectDetailFields } from "./project-detail-fields";
 import { parseProjectDetails } from "@/lib/project-details";
 import { AddressInput } from "./address-input";
 import { parseProjectAddress } from "@/lib/address";
+import { WorkersModule } from "./workers";
+import { WorkerFields, AssignmentEditor } from "./worker-assignments";
+import { localDate } from "@/lib/workers";
 import { ProgressReview, ReviewStatus } from "./progress-review";
 import { SalesPipeline } from "./sales-pipeline";
 import { type PipelineStage, pipelineOpportunity } from "@/lib/pipeline";
@@ -63,6 +67,7 @@ import {
 } from "@/lib/model";
 
 type Tab =
+  | "workers"
   | "contacts"
   | "overview"
   | "projects"
@@ -71,6 +76,7 @@ type Tab =
   | "review"
   | "settings";
 const tabs = [
+  { id: "workers" as const, label: "Trabajadores", icon: HardHat },
   { id: "contacts" as const, label: "Builders y contactos", icon: Building2 },
   { id: "overview" as const, label: "Vista general", icon: LayoutDashboard },
   { id: "projects" as const, label: "Obras", icon: Building2 },
@@ -175,6 +181,8 @@ export function Workspace({
     waste: 8,
     roll_size: 1350,
   });
+  const [workDate, setWorkDate] = useState(() => localDate());
+  const [demoWorker, setDemoWorker] = useState("");
   const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([]);
   const [mediaRecording, setMediaRecording] = useState(false);
   const [report, setReport] = useState({
@@ -217,29 +225,42 @@ export function Workspace({
           }
         } else {
           const db = browserDb();
-          const [p, e, r, m, b, c] = await Promise.all([
-            db
-              .from("projects")
-              .select("*")
-              .order("created_at", { ascending: false }),
-            db
-              .from("estimates")
-              .select("*")
-              .order("created_at", { ascending: false }),
-            db
-              .from("field_reports")
-              .select("*")
-              .order("created_at", { ascending: false }),
+          const [p, e, r, m, b, c, w, rates, assignments] = await Promise.all([
+            readAll<Project>(db, "projects", ["created_at", "id"], false),
+            readAll<Estimate>(db, "estimates", ["created_at", "id"], false),
+            readAll<Report>(db, "field_reports", ["created_at", "id"], false),
             db
               .from("memberships")
               .select("role")
               .eq("user_id", userId!)
               .maybeSingle(),
-            db.from("builders").select("*").order("name"),
-            db.from("contacts").select("*").order("name"),
+            readAll<Data["builders"][number]>(db, "builders", ["name", "id"]),
+            readAll<Data["contacts"][number]>(db, "contacts", ["name", "id"]),
+            readAll<NonNullable<Data["workers"]>[number]>(db, "workers", [
+              "full_name",
+              "user_id",
+            ]),
+            readAll<NonNullable<Data["worker_rates"]>[number]>(
+              db,
+              "worker_rates",
+              ["user_id", "effective_date"],
+            ),
+            readAll<NonNullable<Data["assignments"]>[number]>(
+              db,
+              "assignments",
+              ["project_id", "user_id"],
+            ),
           ]);
           const err =
-            p.error || e.error || r.error || m.error || b.error || c.error;
+            p.error ||
+            e.error ||
+            r.error ||
+            m.error ||
+            b.error ||
+            c.error ||
+            w.error ||
+            rates.error ||
+            assignments.error;
           if (err)
             throw new Error(
               "No se pudieron cargar los datos. Verifica la conexión y vuelve a intentar.",
@@ -250,6 +271,9 @@ export function Workspace({
             );
           if (alive) {
             setData({
+              workers: w.data || [],
+              worker_rates: rates.data || [],
+              assignments: assignments.data || [],
               builders: b.data || [],
               contacts: c.data || [],
               projects: p.data || [],
@@ -269,6 +293,8 @@ export function Workspace({
         if (draft && alive) {
           const saved = JSON.parse(draft);
           setReport({ author_name: "", ...saved });
+          setWorkDate(saved.work_date || localDate());
+          setDemoWorker(saved.worker_id || "");
           reportEventId.current = saved.client_id || null;
           try {
             const files = await mediaStore("get", draftKey);
@@ -340,6 +366,7 @@ export function Workspace({
   }
   async function addProject(form: FormData, fromEstimate = false) {
     const raw = Object.fromEntries(form);
+    const workerIds = form.getAll("worker_ids").map(String);
     const builderName =
       data.builders.find((b) => b.id === raw.builder_id)?.name ||
       String(raw.builder || "");
@@ -370,18 +397,24 @@ export function Workspace({
         created_at: new Date().toISOString(),
       };
     else {
-      const { data, error } = await browserDb()
-        .from("projects")
-        .insert(p)
-        .select()
-        .single();
+      const { data, error } = await browserDb().rpc(
+        "create_project_with_workers",
+        { p_project: p, p_worker_ids: workerIds },
+      );
       if (error)
         throw new Error(
           "No se pudo crear la obra. Revisa tus permisos e inténtalo de nuevo.",
         );
       created = data;
     }
-    persist({ ...next, projects: [created, ...next.projects] });
+    persist({
+      ...next,
+      projects: [created, ...next.projects],
+      assignments: [
+        ...(next.assignments || []),
+        ...workerIds.map((user_id) => ({ project_id: created.id, user_id })),
+      ],
+    });
     if (fromEstimate) {
       setEstimateProject(created.id);
       setCreatingEstimateProject(false);
@@ -538,7 +571,40 @@ export function Workspace({
     }
   }
   async function submitReport() {
-    const values = reportSchema.parse(report);
+    const ownWorker = (data.workers || []).find(
+      (w) => w.user_id === (demo ? demoWorker : userId),
+    );
+    const values = reportSchema.parse({
+      ...report,
+      author_name:
+        demo && !ownWorker
+          ? report.author_name
+          : ownWorker?.full_name || "Oficina",
+    });
+    if (!workDate || workDate > localDate())
+      throw new Error("Elige una fecha trabajada válida, hasta hoy.");
+    const authorId = demo ? demoWorker || undefined : userId;
+    if (
+      demo &&
+      demoWorker &&
+      !(data.assignments || []).some(
+        (a) => a.user_id === demoWorker && a.project_id === report.project_id,
+      )
+    )
+      throw new Error("El trabajador no está asignado a esta obra.");
+    if (
+      authorId &&
+      data.reports
+        .filter(
+          (r) =>
+            r.author_id === authorId &&
+            (r.work_date || r.created_at.slice(0, 10)) === workDate,
+        )
+        .reduce((n, r) => n + Number(r.hours), 0) +
+        values.hours >
+        24
+    )
+      throw new Error("No puedes registrar más de 24 horas en un día.");
     const id = reportEventId.current || crypto.randomUUID();
     reportEventId.current = id;
     validateMedia(pendingMedia);
@@ -551,7 +617,8 @@ export function Workspace({
         ...values,
         id,
         created_at: new Date().toISOString(),
-        author_id: userId,
+        author_id: authorId,
+        work_date: workDate,
       },
       pendingMedia,
       demo,
@@ -596,7 +663,12 @@ export function Workspace({
         <div className="workspace-label">ESPACIO DE TRABAJO</div>
         <nav aria-label="Navegación principal">
           {tabs
-            .filter((t) => !["contacts", "review"].includes(t.id) || canManage)
+            .filter(
+              (t) =>
+                !["contacts", "review", "estimates", "settings"].includes(
+                  t.id,
+                ) || canManage,
+            )
             .map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -605,7 +677,7 @@ export function Workspace({
                 aria-current={tab === id ? "page" : undefined}
               >
                 <Icon size={19} />
-                {label}
+                {id === "workers" && !canManage ? "Mis horas" : label}
                 {id === "estimates" && pending.length > 0 && (
                   <b>{pending.length}</b>
                 )}
@@ -702,6 +774,9 @@ export function Workspace({
                   <h1>
                     {
                       {
+                        workers: canManage
+                          ? "Tu equipo y su semana de trabajo."
+                          : "Tus horas y avances.",
                         contacts: "Tus builders, siempre a mano.",
                         overview: "El estado de tus obras, en un vistazo.",
                         projects: "Cada obra, en su lugar.",
@@ -715,6 +790,8 @@ export function Workspace({
                   <p>
                     {
                       {
+                        workers:
+                          "Obras asignadas, horas aprobadas y pago base estimado de lunes a domingo.",
                         contacts:
                           "Un directorio compartido para todas tus obras.",
                         overview:
@@ -753,6 +830,16 @@ export function Workspace({
                   </button>
                 )}
               </div>
+              {tab === "workers" && (
+                <WorkersModule
+                  data={data}
+                  demo={demo}
+                  canManage={canManage}
+                  busy={busy}
+                  persist={persist}
+                  run={run}
+                />
+              )}
               {tab === "contacts" && canManage && (
                 <Directory
                   data={data}
@@ -1019,13 +1106,52 @@ export function Workspace({
                           ))}
                         </select>
                       </label>
+                      {demo && !!data.workers?.length && (
+                        <label>
+                          Trabajador de demostración
+                          <select
+                            value={demoWorker}
+                            onChange={(e) => setDemoWorker(e.target.value)}
+                          >
+                            <option value="">
+                              Registro sin cuenta vinculada
+                            </option>
+                            {data.workers.map((w) => (
+                              <option key={w.user_id} value={w.user_id}>
+                                {w.full_name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      <label>
+                        Fecha trabajada
+                        <input
+                          type="date"
+                          value={workDate}
+                          max={localDate()}
+                          required
+                          onChange={(e) => setWorkDate(e.target.value)}
+                        />
+                      </label>
                       <label>
                         Nombre del trabajador
                         <input
                           required
                           minLength={2}
                           maxLength={100}
-                          value={report.author_name}
+                          readOnly={!demo || !!demoWorker}
+                          value={
+                            !demo
+                              ? (data.workers || []).find(
+                                  (w) => w.user_id === userId,
+                                )?.full_name || "Oficina"
+                              : demoWorker
+                                ? (data.workers || []).find(
+                                    (w) => w.user_id === demoWorker,
+                                  )?.full_name || ""
+                                : report.author_name
+                          }
                           onChange={(e) =>
                             setReport({
                               ...report,
@@ -1110,6 +1236,8 @@ export function Workspace({
                                 JSON.stringify({
                                   ...report,
                                   client_id: reportEventId.current,
+                                  work_date: workDate,
+                                  worker_id: demoWorker,
                                 }),
                               );
                               setNotice(
@@ -1489,6 +1617,16 @@ export function Workspace({
                 )}
               />
               {canManage && (
+                <AssignmentEditor
+                  data={data}
+                  projectId={selected.id}
+                  demo={demo}
+                  busy={busy}
+                  persist={persist}
+                  run={run}
+                />
+              )}
+              {canManage && (
                 <details>
                   <summary>Cambiar builder o contacto de esta obra</summary>
                   <form
@@ -1709,6 +1847,7 @@ function ProjectFields({ data }: { data: Data }) {
       <AddressInput />
       <h3>Detalles y planificación</h3>
       <ProjectDetailFields />
+      <WorkerFields data={data} />
       <label>
         Fecha objetivo <span className="muted">(opcional)</span>
         <input name="target_date" type="date" />

@@ -82,6 +82,9 @@ function ReviewCard({
         </strong>
       </div>
       <div className="review-body">
+        <p className="small muted">
+          Fecha trabajada: {report.work_date || "Sin fecha registrada"}
+        </p>
         <ReviewStatus report={report} />
         <p className="report-notes">
           {report.notes || "Avance con fotos o audio adjuntos."}

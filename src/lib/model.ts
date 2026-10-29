@@ -37,6 +37,7 @@ export type Estimate = {
   created_at: string;
 };
 export type Report = {
+  work_date?: string;
   review_status?: "pending" | "approved" | "observed";
   review_note?: string;
   reviewed_at?: string | null;
@@ -52,6 +53,9 @@ export type Report = {
   created_at: string;
 };
 export type Data = {
+  workers?: import("./workers").Worker[];
+  worker_rates?: import("./workers").WorkerRate[];
+  assignments?: import("./workers").Assignment[];
   builders: Builder[];
   contacts: Contact[];
   projects: Project[];
